@@ -1,0 +1,7 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+
+# The API imports pipeline/ directly (see app/main.py's sys.path insert) --
+# also install pipeline/requirements.txt:
+#   pip install -r requirements.txt -r ../pipeline/requirements.txt

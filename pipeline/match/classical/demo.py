@@ -90,19 +90,25 @@ class Loaded:
 
 
 def load(product_id: str) -> Loaded:
+    """Raises `ValueError` (not `SystemExit`) on any lookup/read failure --
+    this is imported as a library by backend/app/jobs.py, not just run as a
+    CLI, and SystemExit isn't an Exception subclass: it would sail straight
+    past a background job's `except Exception`, leaving the job stuck
+    "running" forever instead of recorded as "failed" (caught the hard way
+    while testing the backend -- see docs/baseline_results.md history)."""
     if product_id in BROWSE_PRODUCTS:
         xml_rel, png_rel = BROWSE_PRODUCTS[product_id]
         label = parse_label(DATA_ROOT / xml_rel)
         image = cv2.imread(str(DATA_ROOT / png_rel), cv2.IMREAD_UNCHANGED)
         if image is None:
-            raise SystemExit(f"failed to read {DATA_ROOT / png_rel}")
+            raise ValueError(f"failed to read {DATA_ROOT / png_rel}")
     elif product_id in IIRS_PRODUCTS:
         xml_rel, band = IIRS_PRODUCTS[product_id]
         product = load_product(DATA_ROOT / xml_rel)
         label = product.label
         image = to_uint8(product.band(band))
     else:
-        raise SystemExit(
+        raise ValueError(
             f"no data registered for {product_id!r}. "
             f"Available: {sorted(set(BROWSE_PRODUCTS) | set(IIRS_PRODUCTS))}"
         )
@@ -149,8 +155,11 @@ def main():
     ap.add_argument("--out", default=None, help="path to save a match visualization PNG")
     args = ap.parse_args()
 
-    a = load(args.id_a)
-    b = load(args.id_b)
+    try:
+        a = load(args.id_a)
+        b = load(args.id_b)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
 
     # Work at the coarser instrument's GSD -- downsample the finer image
     # rather than upsampling the coarser one, which would just invent detail
