@@ -1,3 +1,4 @@
+from .crop import overlap_crop
 from .footprint import (
     Footprint,
     bbox_overlap,
@@ -14,4 +15,5 @@ __all__ = [
     "quads_overlap",
     "spherical_point_in_quad",
     "BilinearGeoTransform",
+    "overlap_crop",
 ]

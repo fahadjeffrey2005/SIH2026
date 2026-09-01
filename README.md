@@ -19,8 +19,12 @@ See [`docs/architecture.md`](docs/architecture.md) for the full system design, M
 cd pipeline
 pip install -r requirements.txt
 python -m ingest.build_catalog          # populate data/catalog.sqlite from data/raw/
-python -m match.classical.demo <id_a> <id_b>
+
+# classical matching baseline (SIFT/AKAZE + RANSAC) on a confirmed-overlapping pair
+python -m match.classical.demo ch2_iir_nri_20211221t0324126144_d_img_hw1 ch2_tmc_ncf_20240125t0622476078_d_img_d18 --out /tmp/match.png
 ```
+
+See [`docs/baseline_results.md`](docs/baseline_results.md) for first real numbers: the classical baseline finds real correspondences on the low-sun-angle-gap pair (26.9°) and finds *none* on the high-gap, cross-modality pair (34.7°) — the exact failure mode this project's learned track (Track B) needs to fix.
 
 ## Quickstart (backend)
 
