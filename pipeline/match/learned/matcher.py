@@ -55,13 +55,35 @@ class LearnedMatchResult:
         return self.inliers / self.raw_matches if self.raw_matches else 0.0
 
 
-def _to_tensor(img: np.ndarray) -> torch.Tensor:
+def _to_tensor(img: np.ndarray, max_pixels: int = 2_000_000) -> tuple[torch.Tensor, float]:
     """Grayscale uint8 HxW -> 1x3xHxW float tensor in [0,1] (DISK expects
     3-channel input; we just repeat the single band -- these are
     already-panchromatic/single-band rasters, there's no color information
-    to lose)."""
+    to lose).
+
+    Downscales first if the image exceeds `max_pixels` total area, and
+    returns the scale factor actually applied so callers can project
+    keypoints back to the original crop's coordinates. DISK is a dense,
+    fully-convolutional detector: unlike SIFT/AKAZE it materializes a
+    per-pixel feature map (multiple channels, several hundred wide) for the
+    *entire* image before selecting keypoints, so its memory cost scales
+    with image area, not just `max_keypoints`. Found the hard way: one of
+    the larger overlap crops in this project (~13700x400, ~5.5M px) got the
+    process SIGKILLed by the OOM killer with no resize guard; a ~1.2M px
+    crop right next to it ran fine. 2,000,000 px comfortably covers every
+    crop tried so far without triggering a resize, and downscales safely
+    when a bigger one shows up."""
+    h, w = img.shape[:2]
+    scale = 1.0
+    area = h * w
+    if area > max_pixels:
+        scale = (max_pixels / area) ** 0.5
+        img = cv2.resize(
+            img, (max(8, int(round(w * scale))), max(8, int(round(h * scale)))),
+            interpolation=cv2.INTER_AREA,
+        )
     t = torch.from_numpy(img).float()[None, None] / 255.0
-    return t.repeat(1, 3, 1, 1)
+    return t.repeat(1, 3, 1, 1), scale
 
 
 def match(
@@ -75,18 +97,20 @@ def match(
     the same post-processing as match.classical.matcher.match, so the two
     tracks' outputs are directly comparable field-for-field.
 
-    No resizing beyond what the caller already did (match.classical.demo's
-    prep_crop, which aligns both crops to a common working GSD): unlike
+    Resizing is capped by area (see `_to_tensor`), not blanket-applied: most
+    crops in this project run through DISK at full resolution. Unlike
     LoFTR's dense coarse-to-fine transformer (O(pixels^2) attention -- not
     practical on these thousands-of-pixels-long pushbroom crops on CPU),
-    DISK+LightGlue's cost scales with `max_keypoints`, not image area, so
-    there's no need to downsample these already-narrow strips further (an
-    early attempt at capping the long side to 1024px crushed the short axis
+    DISK+LightGlue's *compute* cost scales with `max_keypoints`, not image
+    area (its *memory* cost does scale with area, hence the cap). An early
+    attempt at unconditionally capping the long side to 1024px crushed the
+    short axis
     down to ~30-40px and destroyed almost all cross-track texture -- worth
     remembering if a change here reintroduces that).
     """
     disk, lightglue = _get_models(checkpoint)
-    ta, tb = _to_tensor(img_a), _to_tensor(img_b)
+    ta, scale_a = _to_tensor(img_a)
+    tb, scale_b = _to_tensor(img_b)
 
     with torch.no_grad():
         feats_a = disk(ta, n=max_keypoints, pad_if_not_divisible=True)[0]
@@ -120,8 +144,11 @@ def match(
             np.zeros((0, 2), dtype=np.float32), np.zeros((0, 2), dtype=np.float32),
         )
 
-    pts_a = feats_a.keypoints.numpy()[raw[:, 0]]
-    pts_b = feats_b.keypoints.numpy()[raw[:, 1]]
+    # Project keypoints back to the original (un-downscaled) crop coordinates
+    # the caller passed in -- draw_matches() and any downstream consumer
+    # draws on img_a/img_b as given, not on DISK's possibly-resized copy.
+    pts_a = feats_a.keypoints.numpy()[raw[:, 0]] / scale_a
+    pts_b = feats_b.keypoints.numpy()[raw[:, 1]] / scale_b
 
     H, mask = cv2.findHomography(pts_a, pts_b, cv2.RANSAC, ransac_thresh)
     inlier_mask = mask.ravel().astype(bool) if mask is not None else np.zeros(len(raw), dtype=bool)

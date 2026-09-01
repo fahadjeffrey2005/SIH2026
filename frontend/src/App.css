@@ -210,3 +210,63 @@
   display: block;
   max-width: 100%;
 }
+
+.app-grid-wide {
+  margin-top: 1rem;
+}
+
+.panel-wide {
+  width: 100%;
+}
+
+.matrix-scroll {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+
+.matrix-table {
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  width: 100%;
+  min-width: 640px;
+}
+
+.matrix-table th {
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  padding: 0.4rem 0.6rem;
+  color: #555;
+  white-space: nowrap;
+}
+
+.matrix-table td {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 0.4rem 0.6rem;
+  vertical-align: top;
+}
+
+.cell-hit {
+  background: #e9f9ee;
+}
+
+.cell-miss {
+  background: #f5f5f7;
+}
+
+.cell-inliers {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.cell-hit .cell-inliers {
+  color: #0a7d2c;
+}
+
+.cell-miss .cell-inliers {
+  color: #999;
+}
+
+.cell-detail {
+  font-size: 0.75rem;
+  color: #777;
+}

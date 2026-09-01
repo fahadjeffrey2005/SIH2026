@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import CatalogBrowser from "./components/CatalogBrowser";
 import PairPicker from "./components/PairPicker";
 import ResultsView from "./components/ResultsView";
-import { listProducts, suggestPairs, submitMatch, getMatch, overlayUrl } from "./api";
+import MetricsDashboard from "./components/MetricsDashboard";
+import { listProducts, suggestPairs, submitMatch, getMatch, overlayUrl, getMetricsMatrix } from "./api";
 import "./App.css";
 
 const POLL_INTERVAL_MS = 1500;
@@ -25,11 +26,22 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const pollRef = useRef(null);
 
+  const [matrix, setMatrix] = useState(null);
+  const [matrixLoading, setMatrixLoading] = useState(true);
+  const [matrixError, setMatrixError] = useState(null);
+
   useEffect(() => {
     listProducts()
       .then((data) => setProducts(data))
       .catch((err) => setProductsError(err.message))
       .finally(() => setProductsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    getMetricsMatrix()
+      .then((data) => setMatrix(data))
+      .catch((err) => setMatrixError(err.message))
+      .finally(() => setMatrixLoading(false));
   }, []);
 
   useEffect(() => {
@@ -114,6 +126,10 @@ export default function App() {
         />
         <ResultsView job={job} error={jobError} />
       </main>
+
+      <div className="app-grid-wide">
+        <MetricsDashboard matrix={matrix} loading={matrixLoading} error={matrixError} />
+      </div>
     </div>
   );
 }

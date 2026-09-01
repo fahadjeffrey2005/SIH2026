@@ -21,7 +21,7 @@ if str(PIPELINE_DIR) not in sys.path:
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
-from .routers import match, pairs, products  # noqa: E402
+from .routers import match, metrics, pairs, products  # noqa: E402
 
 app = FastAPI(
     title="SIH26166 Correspondence API",
@@ -39,6 +39,7 @@ app.add_middleware(
 app.include_router(products.router)
 app.include_router(pairs.router)
 app.include_router(match.router)
+app.include_router(metrics.router)
 
 
 @app.get("/health", tags=["meta"])

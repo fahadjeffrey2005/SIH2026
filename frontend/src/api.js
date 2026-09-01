@@ -41,3 +41,7 @@ export function getMatch(jobId) {
 export function overlayUrl(jobId) {
   return `${API_BASE}/match/${jobId}/overlay`;
 }
+
+export function getMetricsMatrix() {
+  return request("/metrics/matrix");
+}
