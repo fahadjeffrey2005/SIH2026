@@ -5,3 +5,7 @@ pydantic>=2.6
 # The API imports pipeline/ directly (see app/main.py's sys.path insert) --
 # also install pipeline/requirements.txt:
 #   pip install -r requirements.txt -r ../pipeline/requirements.txt
+
+# Dev/test only. httpx is what FastAPI's TestClient uses under the hood.
+pytest>=8.0
+httpx>=0.27

@@ -1,0 +1,168 @@
+"""End-to-end tests for the FastAPI app against the real data/catalog.sqlite
+and staged rasters (no mocking) -- this project's established discipline of
+verifying against ground truth rather than static review, applied to the
+backend layer. Two of these tests are direct regressions for bugs found
+during this build:
+
+  * test_pairs_suggest_excludes_non_overlapping_tmc2024_pair pins down the
+    OHRC-2021 / TMC-2-2024-01-25 near-miss (see pipeline/tests/
+    test_geo_footprint.py) at the API layer.
+  * test_match_failure_path_settles_to_failed_not_hung is the regression
+    test for the SystemExit-vs-ValueError bug: demo.load() used to raise
+    SystemExit for an unregistered product, which escaped run_match_job's
+    `except Exception` and left jobs stuck "running" forever. Fixed by
+    raising ValueError instead (see pipeline/match/classical/demo.py).
+"""
+
+from __future__ import annotations
+
+import time
+
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+client = TestClient(app)
+
+# Real catalog product ids (data/catalog.sqlite), reused across tests.
+OHRC_2021 = "ch2_ohr_ncp_20210405t1606536730_d_img_d18"  # has raster (browse PNG)
+OHRC_2021_NO_RASTER = "ch2_ohr_ncp_20210405t1606537227_d_img_d18"  # in catalog, no raster staged
+TMC2_2024_NCF = "ch2_tmc_ncf_20240125t0622476078_d_img_d18"  # genuinely does NOT overlap OHRC_2021
+TMC2_2024_NCA = "ch2_tmc_nca_20240125t0622476111_d_img_d18"  # same near-miss, different strip
+TMC2_2025_NCF = "ch2_tmc_ncf_20250807t1904346039_d_img_d18"  # has raster, overlaps OHRC_2021
+IIRS_2021 = "ch2_iir_nri_20211221t0324126144_d_img_hw1"  # has raster, overlaps everything here
+
+
+def _poll_job(job_id: str, timeout_s: float = 60.0) -> dict:
+    """TestClient's synchronous ASGI transport actually runs BackgroundTasks
+    to completion before POST /match returns, so the job is usually already
+    terminal by the time we get here -- but poll anyway rather than assuming
+    that implementation detail, so this test survives a transport change."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        resp = client.get(f"/match/{job_id}")
+        assert resp.status_code == 200
+        body = resp.json()
+        if body["status"] in ("done", "failed"):
+            return body
+        time.sleep(0.2)
+    raise AssertionError(f"job {job_id} did not settle within {timeout_s}s")
+
+
+def test_health():
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
+def test_list_products():
+    resp = client.get("/products")
+    assert resp.status_code == 200
+    products = {p["product_id"]: p for p in resp.json()}
+
+    assert OHRC_2021 in products
+    assert products[OHRC_2021]["instrument"] == "OHRC"
+    assert products[OHRC_2021]["has_raster"] is True
+
+    # In the catalog with real metadata, but its raster hasn't been staged
+    # past the label -- has_raster must say so honestly rather than default True.
+    assert products[OHRC_2021_NO_RASTER]["has_raster"] is False
+
+    assert products[IIRS_2021]["has_raster"] is True
+
+
+def test_pairs_suggest_excludes_non_overlapping_tmc2024_pair():
+    """API-level regression for the OHRC-2021 / TMC-2-2024-01-25 near-miss:
+    bboxes overlap but the true footprints don't (see
+    pipeline/tests/test_geo_footprint.py). /pairs/suggest must not offer
+    either 2024-01-25 TMC-2 strip as a candidate for OHRC_2021, but must
+    still offer the genuinely-overlapping 2025 strip and IIRS."""
+    resp = client.get("/pairs/suggest", params={"product_id": OHRC_2021})
+    assert resp.status_code == 200
+    suggestions = {s["product_id"]: s for s in resp.json()}
+
+    assert TMC2_2024_NCF not in suggestions
+    assert TMC2_2024_NCA not in suggestions
+
+    assert TMC2_2025_NCF in suggestions
+    assert suggestions[TMC2_2025_NCF]["has_raster"] is True
+    assert IIRS_2021 in suggestions
+
+    # Sorted ascending by incidence gap.
+    gaps = [s["incidence_gap_deg"] for s in resp.json() if s["incidence_gap_deg"] is not None]
+    assert gaps == sorted(gaps)
+
+
+def test_pairs_suggest_unknown_product_404():
+    resp = client.get("/pairs/suggest", params={"product_id": "not_a_real_product"})
+    assert resp.status_code == 404
+
+
+def test_match_happy_path_sift():
+    resp = client.post("/match", json={
+        "product_a": OHRC_2021,
+        "product_b": TMC2_2025_NCF,
+        "method": "sift",
+    })
+    assert resp.status_code == 200
+    job = resp.json()
+    assert job["status"] in ("queued", "running", "done")
+
+    settled = _poll_job(job["job_id"])
+    assert settled["status"] == "done", settled.get("error")
+    result = settled["result"]
+    assert result["keypoints_a"] > 0
+    assert result["keypoints_b"] > 0
+    assert "raw_matches" in result
+    assert "inlier_ratio" in result
+    assert result["overlay_url"] == f"/match/{job['job_id']}/overlay"
+
+    overlay = client.get(result["overlay_url"])
+    assert overlay.status_code == 200
+    assert overlay.headers["content-type"] == "image/png"
+
+
+def test_match_failure_path_settles_to_failed_not_hung():
+    """Regression test: submitting a product with no raster staged used to
+    raise SystemExit deep in demo.load(), which escaped run_match_job's
+    `except Exception` and left the job stuck at status="running" forever
+    (found via live end-to-end testing, not code review). It must now
+    settle to "failed" with a readable error."""
+    resp = client.post("/match", json={
+        "product_a": OHRC_2021_NO_RASTER,
+        "product_b": OHRC_2021,
+        "method": "sift",
+    })
+    assert resp.status_code == 200
+    job_id = resp.json()["job_id"]
+
+    settled = _poll_job(job_id)
+    assert settled["status"] == "failed"
+    assert settled["error"] is not None
+    assert OHRC_2021_NO_RASTER in settled["error"]
+
+
+def test_match_unknown_method_422():
+    resp = client.post("/match", json={
+        "product_a": OHRC_2021,
+        "product_b": TMC2_2025_NCF,
+        "method": "not_a_real_method",
+    })
+    assert resp.status_code == 422
+
+
+def test_match_unknown_job_404():
+    resp = client.get("/match/not_a_real_job_id")
+    assert resp.status_code == 404
+
+
+def test_metrics_matrix():
+    resp = client.get("/metrics/matrix")
+    assert resp.status_code == 200
+    body = resp.json()
+    rows = body["rows"]
+    assert isinstance(rows, list)
+    assert len(rows) > 0
+    row = rows[0]
+    for key in ("product_a", "product_b", "method", "inliers", "inlier_ratio"):
+        assert key in row

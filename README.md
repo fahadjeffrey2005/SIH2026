@@ -49,6 +49,23 @@ npm run dev          # expects the backend at http://localhost:8000; override wi
 
 All 4 planned screens working end-to-end against a live backend: catalog browser (real catalog data, filterable by instrument), pair picker (genuinely-overlapping candidates from `/pairs/suggest`, sorted by sun-angle gap, all 3 methods selectable), results view (job submission + polling, inlier/keypoint metrics, correspondence overlay image), and a metrics dashboard (the full instrument-pair x sun-angle-gap x method matrix from `GET /metrics/matrix`, color-coded by whether real correspondences were found -- see docs/baseline_results.md for the reading). Uses a plain `<img>` for the results-view overlay rather than OpenSeadragon deep-zoom for now -- that needs a tile pyramid per product, which isn't built yet (see docs/architecture.md Sec. 7); swapping it in later doesn't require changing the job/result data shape.
 
+## Testing
+
+Both `pipeline/` and `backend/` have pytest suites that run against real project data (not mocks) -- the same "verify against ground truth" discipline used throughout this build. Several tests are permanent regressions for real bugs found during development (corner-block ambiguity, the `overlap_crop` extrapolation blowup, the OHRC-2021/TMC-2-2024-01-25 near-miss, the DISK OOM crash, the SystemExit-vs-ValueError job-hang bug).
+
+```bash
+cd pipeline
+pip install -r requirements.txt
+pytest                    # full suite, incl. slow DISK+LightGlue tests (downloads weights on first run)
+pytest -m "not slow"      # fast subset only (~3s) -- skips anything needing torch/kornia
+```
+
+```bash
+cd backend
+pip install -r requirements.txt -r ../pipeline/requirements.txt
+pytest                    # exercises the live FastAPI app via TestClient against data/catalog.sqlite
+```
+
 ## Data
 
 Raw PDS4 zips go under `data/raw/<instrument>/`. As of 2026-09-01 the team has downloaded 8 products from a verified equatorial overlap site (~lon -23.4 to -23.5°E, lat -2.6 to -3.4°S):

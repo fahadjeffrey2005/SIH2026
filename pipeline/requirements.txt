@@ -12,3 +12,6 @@ lxml>=5.0
 # ~/.cache/torch/hub/checkpoints/.
 torch>=2.2
 kornia>=0.8
+
+# Dev/test only.
+pytest>=8.0
