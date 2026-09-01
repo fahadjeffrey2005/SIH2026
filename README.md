@@ -39,8 +39,10 @@ uvicorn app.main:app --reload
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev          # expects the backend at http://localhost:8000; override with VITE_API_BASE
 ```
+
+3 screens working end-to-end against a live backend as of this writing: catalog browser (real catalog data, filterable by instrument), pair picker (genuinely-overlapping candidates from `/pairs/suggest`, sorted by sun-angle gap), results view (job submission + polling, inlier/keypoint metrics, correspondence overlay image). Uses a plain `<img>` for the overlay rather than OpenSeadragon deep-zoom for now -- that needs a tile pyramid per product, which isn't built yet (see docs/architecture.md Sec. 7); swapping it in later doesn't require changing the job/result data shape. The 4th screen (metrics dashboard crossing instrument-pair x sun-angle-bucket x method) is not built yet -- there are only 2 real baseline numbers so far (docs/baseline_results.md).
 
 ## Data
 
