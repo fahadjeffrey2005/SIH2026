@@ -30,7 +30,7 @@ class PairSuggestion(BaseModel):
 class MatchRequest(BaseModel):
     product_a: str
     product_b: str
-    method: str = "sift"  # "sift" | "akaze"
+    method: str = "sift"  # "sift" | "akaze" (Track A) | "disk_lightglue" (Track B, learned)
 
 
 class MatchJobOut(BaseModel):

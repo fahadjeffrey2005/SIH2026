@@ -4,3 +4,11 @@ pdr>=1.4
 rasterio>=1.3
 scipy>=1.12
 lxml>=5.0
+
+# Track B (learned matching, pipeline/match/learned) -- CPU is fine, these
+# crops are small. First run downloads DISK + LightGlue pretrained weights
+# from GitHub (raw.githubusercontent.com / github.com/cvg/LightGlue
+# releases) -- needs network access to those hosts once, then caches under
+# ~/.cache/torch/hub/checkpoints/.
+torch>=2.2
+kornia>=0.8

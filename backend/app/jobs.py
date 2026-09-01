@@ -19,10 +19,15 @@ from typing import Optional
 import cv2
 from match.classical import matcher as classical_matcher
 from match.classical.demo import browse_gsd_m, draw_matches, load, prep_crop
+from match.learned import matcher as learned_matcher
 
 from .config import MATCH_OUTPUT_DIR
 
 _JOBS: dict[str, "Job"] = {}
+
+_CLASSICAL_METHODS = ("sift", "akaze")
+_LEARNED_METHODS = ("disk_lightglue",)
+ALL_METHODS = _CLASSICAL_METHODS + _LEARNED_METHODS
 
 
 @dataclass
@@ -55,7 +60,15 @@ def run_match_job(job_id: str) -> None:
         target_gsd = max(browse_gsd_m(a), browse_gsd_m(b))
         crop_a, _origin_a = prep_crop(a, b, target_gsd)
         crop_b, _origin_b = prep_crop(b, a, target_gsd)
-        result = classical_matcher.match(crop_a, crop_b, method=job.method)
+
+        if job.method in _CLASSICAL_METHODS:
+            result = classical_matcher.match(crop_a, crop_b, method=job.method)
+            raw_matches = result.ratio_test_matches
+        elif job.method in _LEARNED_METHODS:
+            result = learned_matcher.match(crop_a, crop_b)
+            raw_matches = result.raw_matches
+        else:
+            raise ValueError(f"unknown method {job.method!r}, expected one of {ALL_METHODS}")
 
         overlay_path = MATCH_OUTPUT_DIR / f"{job_id}.png"
         vis = draw_matches(crop_a, crop_b, result)
@@ -64,7 +77,7 @@ def run_match_job(job_id: str) -> None:
         job.result = {
             "keypoints_a": result.keypoints_a,
             "keypoints_b": result.keypoints_b,
-            "ratio_test_matches": result.ratio_test_matches,
+            "raw_matches": raw_matches,
             "inliers": result.inliers,
             "inlier_ratio": result.inlier_ratio,
             "overlay_url": f"/match/{job_id}/overlay",

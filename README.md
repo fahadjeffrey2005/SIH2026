@@ -22,9 +22,14 @@ python -m ingest.build_catalog          # populate data/catalog.sqlite from data
 
 # classical matching baseline (SIFT/AKAZE + RANSAC) on a confirmed-overlapping pair
 python -m match.classical.demo ch2_iir_nri_20211221t0324126144_d_img_hw1 ch2_tmc_ncf_20240125t0622476078_d_img_d18 --out /tmp/match.png
+
+# both tracks (classical SIFT/AKAZE + learned DISK/LightGlue) on one pair, side by side
+python -m match.compare ch2_iir_nri_20211221t0324126144_d_img_hw1 ch2_tmc_ncf_20240125t0622476078_d_img_d18 --out-dir /tmp/compare
 ```
 
-See [`docs/baseline_results.md`](docs/baseline_results.md) for first real numbers: the classical baseline finds real correspondences on the low-sun-angle-gap pair (26.9°) and finds *none* on the high-gap, cross-modality pair (34.7°) — the exact failure mode this project's learned track (Track B) needs to fix.
+Track B (learned) is DISK+LightGlue via `kornia`, not LoFTR as originally named in docs/architecture.md -- kornia's only pretrained LoFTR weights are hosted on a host this environment's egress policy blocks; DISK/LightGlue's GitHub-hosted weights aren't. First run downloads ~50MB of pretrained weights (needs network access to `raw.githubusercontent.com` / `github.com/cvg/LightGlue`).
+
+See [`docs/baseline_results.md`](docs/baseline_results.md) for the real numbers: the classical baseline finds real correspondences on the low-sun-angle-gap pair (26.9°) and finds *none* on the high-gap, cross-modality pair (34.7°); the pretrained learned baseline, used zero-shot, does *not* beat classical on the low-gap pair (0 inliers vs SIFT's 7) and also fails on the high-gap pair. That's a genuine result, sanity-checked against both tracks' self-match performance, not a bug.
 
 ## Quickstart (backend)
 
@@ -42,7 +47,7 @@ npm install
 npm run dev          # expects the backend at http://localhost:8000; override with VITE_API_BASE
 ```
 
-3 screens working end-to-end against a live backend as of this writing: catalog browser (real catalog data, filterable by instrument), pair picker (genuinely-overlapping candidates from `/pairs/suggest`, sorted by sun-angle gap), results view (job submission + polling, inlier/keypoint metrics, correspondence overlay image). Uses a plain `<img>` for the overlay rather than OpenSeadragon deep-zoom for now -- that needs a tile pyramid per product, which isn't built yet (see docs/architecture.md Sec. 7); swapping it in later doesn't require changing the job/result data shape. The 4th screen (metrics dashboard crossing instrument-pair x sun-angle-bucket x method) is not built yet -- there are only 2 real baseline numbers so far (docs/baseline_results.md).
+3 screens working end-to-end against a live backend as of this writing: catalog browser (real catalog data, filterable by instrument), pair picker (genuinely-overlapping candidates from `/pairs/suggest`, sorted by sun-angle gap), results view (job submission + polling, inlier/keypoint metrics, correspondence overlay image) with all 3 methods selectable (SIFT, AKAZE, DISK+LightGlue). Uses a plain `<img>` for the overlay rather than OpenSeadragon deep-zoom for now -- that needs a tile pyramid per product, which isn't built yet (see docs/architecture.md Sec. 7); swapping it in later doesn't require changing the job/result data shape. The 4th screen (metrics dashboard crossing instrument-pair x sun-angle-bucket x method) is not built yet -- there are only 2 pairs' worth of real numbers so far (docs/baseline_results.md).
 
 ## Data
 

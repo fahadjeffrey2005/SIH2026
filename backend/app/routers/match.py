@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 
 from ..config import MATCH_OUTPUT_DIR
-from ..jobs import create_job, get_job, run_match_job
+from ..jobs import ALL_METHODS, create_job, get_job, run_match_job
 from ..schemas import MatchJobOut, MatchRequest
 
 router = APIRouter(tags=["match"])
@@ -19,8 +19,8 @@ def _job_out(job) -> MatchJobOut:
 
 @router.post("/match", response_model=MatchJobOut)
 def submit_match(req: MatchRequest, background_tasks: BackgroundTasks):
-    if req.method not in ("sift", "akaze"):
-        raise HTTPException(422, f"unknown method {req.method!r}, expected 'sift' or 'akaze'")
+    if req.method not in ALL_METHODS:
+        raise HTTPException(422, f"unknown method {req.method!r}, expected one of {ALL_METHODS}")
     job = create_job(req.product_a, req.product_b, req.method)
     background_tasks.add_task(run_match_job, job.job_id)
     return _job_out(job)

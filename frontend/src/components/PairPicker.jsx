@@ -42,6 +42,10 @@ export default function PairPicker({ selectedId, anchorHasRaster, suggestions, l
               <input type="radio" name="method" value="akaze" checked={method === "akaze"} onChange={() => onMethodChange("akaze")} />
               AKAZE
             </label>
+            <label>
+              <input type="radio" name="method" value="disk_lightglue" checked={method === "disk_lightglue"} onChange={() => onMethodChange("disk_lightglue")} />
+              DISK+LightGlue (learned)
+            </label>
           </div>
 
           <ul className="suggestion-list">

@@ -42,7 +42,7 @@ export default function ResultsView({ job, error }) {
         <>
           <dl className="metrics">
             <div><dt>Keypoints</dt><dd>{job.result.keypoints_a} / {job.result.keypoints_b}</dd></div>
-            <div><dt>Ratio-test matches</dt><dd>{job.result.ratio_test_matches}</dd></div>
+            <div><dt>Candidate matches</dt><dd>{job.result.raw_matches}</dd></div>
             <div><dt>RANSAC inliers</dt><dd>{job.result.inliers}</dd></div>
             <div><dt>Inlier ratio</dt><dd>{(job.result.inlier_ratio * 100).toFixed(0)}%</dd></div>
             <div><dt>Working resolution</dt><dd>{job.result.working_gsd_m} m/px</dd></div>
@@ -50,7 +50,8 @@ export default function ResultsView({ job, error }) {
           {job.result.inliers === 0 && (
             <p className="muted small">
               Zero inliers is itself a real, reportable result here -- see docs/baseline_results.md.
-              It's the classical-baseline failure mode this project's learned track (Track B) is meant to fix.
+              Both tracks (classical and learned) fail on the high-sun-angle-gap pair; that's the
+              actual hard case this project is about.
             </p>
           )}
           <div className="overlay-scroll">
