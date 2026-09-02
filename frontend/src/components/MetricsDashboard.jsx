@@ -104,6 +104,12 @@ export default function MetricsDashboard({ matrix, loading, error }) {
         pseudo-ground-truth modeling limit for TMC-2/IIRS's very long pushbroom swaths, not as
         matching error -- see docs/baseline_results.md's "geolocation agreement" section.
       </p>
+      <p className="muted small">
+        This matrix is still browse-resolution (1/10-downsampled) for OHRC/TMC-2. A native-resolution
+        follow-up on the OHRC+TMC-2 2025-08-07 row (34.7&deg;) found real classical matches that browse
+        resolution missed entirely (4.6-5.6 km geoloc agreement, the tightest in the project) -- not yet
+        run for the other rows. See docs/baseline_results.md's "Native-resolution follow-up" section.
+      </p>
     </section>
   );
 }

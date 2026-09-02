@@ -54,10 +54,17 @@ tracks (434/435 SIFT inliers, 1229/1235 DISK+LightGlue inliers on the same
 image rotated 8°) so a zero-inlier row means "no correspondence found",
 not "pipeline broken":
 
-1. **There's a real, monotonic-looking sun-angle-gap cliff.** Every method
-   finds real matches at 7.1° and (classically) at 26.9-34.0°; nothing
-   finds anything past 34.7°. That's the actual hard case this whole
-   project is about, now with numbers instead of an assumption.
+1. **There's a real, monotonic-looking sun-angle-gap cliff -- at browse
+   resolution.** Every method finds real matches at 7.1° and (classically)
+   at 26.9-34.0°; nothing finds anything past 34.7° *when working from the
+   1/10-downsampled browse PNGs*. Update: the "Native-resolution follow-up"
+   section below found that the 34.7° pair isn't actually a hard cliff --
+   it's a resolution artifact. Classical matching recovers real
+   correspondences there once OHRC/TMC-2 are read at (closer to) native
+   resolution instead of the pre-baked browse thumbnail. The true cliff, if
+   one exists in this catalog, is somewhere beyond 34.7° and hasn't been
+   located yet (68.7°, the only pair further out, hasn't been retried at
+   native resolution).
 
 2. **Zero-shot DISK+LightGlue does not beat classical SIFT/AKAZE on this
    domain -- it's the first method to fail as the gap widens**, going to
@@ -135,13 +142,79 @@ Reproduce a single pair's numbers directly:
 python -m match.compare <id_a> <id_b>   # now prints geoloc median/p90 alongside inliers
 ```
 
+## Native-resolution follow-up
+
+The main matrix above uses OHRC/TMC-2's 1/10-downsampled browse PNGs, not
+native rasters -- native files are 300MB-2.2GB *uncompressed* each (see
+`pipeline/tools/extract_native_crop.py`'s docstring for the exact byte
+math), too big to keep staged in this pipeline environment wholesale. But
+the raw PDS4 zips do live on the project's external drive, so a targeted
+follow-up is possible: extract just the true geometric overlap crop for one
+pair at (closer to) native resolution and re-run the same matching +
+evaluation.
+
+Did this for **OHRC 2021-04-05 vs TMC-2 2025-08-07** (34.7° gap, the pair
+that found zero matches at browse resolution in the main matrix). Working
+resolution here is TMC-2's own native 5m/px (vs. the browse run's 50m/px --
+TMC-2's browse GSD, 10x coarser); OHRC is downsampled 20x from its native
+0.25m/px either way, but starting from real detail instead of an
+already-10x-blurred thumbnail.
+
+| Method | Keypoints | Raw matches | Inliers | Geoloc median | p90 |
+|---|---|---|---|---|---|
+| SIFT | 8000/8000 | 15 | 4 (27%) | 4.6 km | 5.2 km |
+| AKAZE | 5181/27638 | 12 | 4 (33%) | 5.6 km | 8.1 km |
+| DISK+LightGlue | 2048/2048 | 0 | 0 (0%) | n/a | n/a |
+
+(compare to the browse-resolution row for this same pair: 0/0/0 inliers
+across all three methods.)
+
+Two things worth noting together:
+
+- **Classical matching goes from zero to real correspondences purely from
+  resolution**, no algorithm change. That's a meaningful revision to
+  finding #1 above -- the browse-resolution "cliff" at 34.7° was partly an
+  artifact of using a 10x-lossy thumbnail, not a fundamental limit of
+  SIFT/AKAZE on this domain.
+- **DISK+LightGlue still finds nothing, even with the same resolution
+  boost that just rescued the classical track.** That's independent
+  support for finding #2 (zero-shot domain gap) -- ruling out "it just
+  needed more detail" as the explanation for Track B's earlier failures.
+- **Geoloc agreement here (4.6-5.6 km) is dramatically tighter than every
+  TMC-2/IIRS-involving row in the main matrix (65-192 km)**, consistent
+  with the "Geolocation agreement" section's hypothesis above: OHRC's much
+  shorter (~90km) footprint suffers far less from `BilinearGeoTransform`'s
+  single-quad linear-interpolation error than TMC-2's/IIRS's 500-1500km
+  swaths. This is the first pair in this project with real inliers on a
+  short-footprint product, and it's exactly the tight-agreement result
+  that section predicted.
+
+How to reproduce: the native rasters aren't checked into this repo (too
+large), but the two small pre-cropped PNGs this run used are, at
+`data/native_crops/`. Re-run the comparison directly:
+
+```bash
+cd pipeline
+python -m match.native_demo
+```
+
+To regenerate those crop PNGs from the raw PDS4 zips (needs numpy + opencv
+only, run wherever the zips live): see
+`pipeline/tools/extract_native_crop.py`'s docstring. Extending this to
+another pair means computing a new crop window the same way
+(`geo.overlap_crop` against each product's own native `BilinearGeoTransform`,
+not the browse-scale one) -- not yet done for the remaining pairs (in
+particular IIRS+OHRC at 68.7°, the one pair beyond 34.7° that might reveal
+where the real cliff, if any, actually is).
+
 ## Known caveats in this matrix
 
-- OHRC/TMC-2 imagery is the 1/10-downsampled browse PNG, not the native
-  raster (native files are 300-800MB each and not yet staged into the
-  pipeline environment -- see `match/classical/demo.py` docstring). Native
-  resolution should only help both tracks, not explain away the zero-match
-  results at browse scale, but it hasn't been tried yet.
+- The main matrix's OHRC/TMC-2 imagery is still the 1/10-downsampled browse
+  PNG, not native resolution -- see "Native-resolution follow-up" above for
+  the one pair retried at native res so far. The other 3 pairs involving
+  OHRC or TMC-2 (all 4 rows above except IIRS+OHRC) haven't been retried
+  yet, so their zero/nonzero results should still be read as "at browse
+  resolution" rather than a final answer.
 - IIRS is represented by a single VNIR band (index 40), not a fused/PCA
   composite.
 - `geo.overlap_crop`'s margin (15%), CLAHE's clip limit (2.5), and DISK's

@@ -25,11 +25,14 @@ python -m match.classical.demo ch2_iir_nri_20211221t0324126144_d_img_hw1 ch2_tmc
 
 # both tracks (classical SIFT/AKAZE + learned DISK/LightGlue) on one pair, side by side
 python -m match.compare ch2_iir_nri_20211221t0324126144_d_img_hw1 ch2_tmc_ncf_20240125t0622476078_d_img_d18 --out-dir /tmp/compare
+
+# native-resolution follow-up on the pair that failed at browse resolution (see docs/baseline_results.md)
+python -m match.native_demo
 ```
 
 Track B (learned) is DISK+LightGlue via `kornia`, not LoFTR as originally named in docs/architecture.md -- kornia's only pretrained LoFTR weights are hosted on a host this environment's egress policy blocks; DISK/LightGlue's GitHub-hosted weights aren't. First run downloads ~50MB of pretrained weights (needs network access to `raw.githubusercontent.com` / `github.com/cvg/LightGlue`).
 
-See [`docs/baseline_results.md`](docs/baseline_results.md) for the real numbers: the classical baseline finds real correspondences on the low-sun-angle-gap pair (26.9°) and finds *none* on the high-gap, cross-modality pair (34.7°); the pretrained learned baseline, used zero-shot, does *not* beat classical on the low-gap pair (0 inliers vs SIFT's 7) and also fails on the high-gap pair. That's a genuine result, sanity-checked against both tracks' self-match performance, not a bug.
+See [`docs/baseline_results.md`](docs/baseline_results.md) for the real numbers: at browse resolution, the classical baseline finds real correspondences on the low-sun-angle-gap pair (26.9°) and finds none on the high-gap, cross-modality pair (34.7°); the pretrained learned baseline, used zero-shot, does *not* beat classical on the low-gap pair (0 inliers vs SIFT's 7) and also fails on the high-gap pair. That's a genuine result, sanity-checked against both tracks' self-match performance, not a bug -- but it's also resolution-dependent: a native-resolution follow-up on the 34.7° pair (`match.native_demo`) recovers real classical correspondences (SIFT/AKAZE, 4 inliers each) that browse resolution missed entirely, while DISK+LightGlue still finds nothing even with the same resolution boost. See docs/baseline_results.md's "Native-resolution follow-up" section for the full read.
 
 ## Quickstart (backend)
 
