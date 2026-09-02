@@ -19,6 +19,7 @@ from typing import Optional
 import cv2
 from match.classical import matcher as classical_matcher
 from match.classical.demo import browse_gsd_m, draw_matches, load, prep_crop
+from match.evaluate import geolocation_errors_m, summarize_errors
 from match.learned import matcher as learned_matcher
 
 from .config import MATCH_OUTPUT_DIR
@@ -58,8 +59,10 @@ def run_match_job(job_id: str) -> None:
         a = load(job.product_a)
         b = load(job.product_b)
         target_gsd = max(browse_gsd_m(a), browse_gsd_m(b))
-        crop_a, _origin_a = prep_crop(a, b, target_gsd)
-        crop_b, _origin_b = prep_crop(b, a, target_gsd)
+        scale_a = browse_gsd_m(a) / target_gsd
+        scale_b = browse_gsd_m(b) / target_gsd
+        crop_a, origin_a = prep_crop(a, b, target_gsd)
+        crop_b, origin_b = prep_crop(b, a, target_gsd)
 
         if job.method in _CLASSICAL_METHODS:
             result = classical_matcher.match(crop_a, crop_b, method=job.method)
@@ -74,6 +77,13 @@ def run_match_job(job_id: str) -> None:
         vis = draw_matches(crop_a, crop_b, result)
         cv2.imwrite(str(overlay_path), vis)
 
+        # Independent accuracy check via each product's own PDS4 corner
+        # geolocation (see pipeline/match/evaluate.py) -- inlier counts
+        # alone only say the matches are internally self-consistent, not
+        # that they're geometrically correct.
+        errors = geolocation_errors_m(a, origin_a, scale_a, b, origin_b, scale_b, result.pts_a, result.pts_b)
+        geoloc = summarize_errors(errors)
+
         job.result = {
             "keypoints_a": result.keypoints_a,
             "keypoints_b": result.keypoints_b,
@@ -82,6 +92,9 @@ def run_match_job(job_id: str) -> None:
             "inlier_ratio": result.inlier_ratio,
             "overlay_url": f"/match/{job_id}/overlay",
             "working_gsd_m": target_gsd,
+            "geoloc_error_median_m": geoloc["median_m"],
+            "geoloc_error_p90_m": geoloc["p90_m"],
+            "geoloc_error_n": geoloc["n"],
         }
         job.status = "done"
     except Exception as exc:

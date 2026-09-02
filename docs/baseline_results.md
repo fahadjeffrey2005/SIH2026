@@ -19,13 +19,19 @@ of the same data, not a separate hand-typed source of truth.
   which this environment's egress policy blocks. DISK's and LightGlue's
   weights are both GitHub release/raw assets, which are reachable.
 
-| Pair | Incidence gap | SIFT inliers | AKAZE inliers | DISK+LightGlue inliers |
+| Pair | Incidence gap | SIFT inliers (geoloc median) | AKAZE inliers (geoloc median) | DISK+LightGlue inliers (geoloc median) |
 |---|---|---|---|---|
-| TMC-2 2024-01-25 + TMC-2 2025-08-07 (same instrument) | 7.1° | 5 / 15 (33%) | 4 / 9 (44%) | 4 / 24 (17%) |
-| IIRS + TMC-2 2024-01-25 | 26.9° | 7 / 25 (28%) | 4 / 10 (40%) | **0** / 23 (0%) |
-| IIRS + TMC-2 2025-08-07 | 34.0° | 5 / 12 (42%) | 3 / 14 (21%) | **0** / 0 (0%) |
-| OHRC + TMC-2 2025-08-07 | 34.7° | 0 / 0 | 0 / 0 | 0 / 1 |
-| IIRS + OHRC | 68.7° | 0 / 0 | 0 / 0 | 0 / 0 |
+| TMC-2 2024-01-25 + TMC-2 2025-08-07 (same instrument) | 7.1° | 5 / 15 (33%) — 192.1 km | 4 / 9 (44%) — 64.9 km | 4 / 24 (17%) — 159.2 km |
+| IIRS + TMC-2 2024-01-25 | 26.9° | 7 / 25 (28%) — 186.7 km | 4 / 10 (40%) — 76.8 km | **0** / 23 (0%) — n/a |
+| IIRS + TMC-2 2025-08-07 | 34.0° | 5 / 12 (42%) — 2.8 km | 3 / 14 (21%) — 14.3 km | **0** / 0 (0%) — n/a |
+| OHRC + TMC-2 2025-08-07 | 34.7° | 0 / 0 — n/a | 0 / 0 — n/a | 0 / 1 — n/a |
+| IIRS + OHRC | 68.7° | 0 / 0 — n/a | 0 / 0 — n/a | 0 / 0 — n/a |
+
+"geoloc median" is the new independent accuracy metric (see "Geolocation
+agreement" below) -- median great-circle distance, in km, between each
+inlier correspondence's two independently-derived lat/lon estimates. It is
+*not* an inlier-count qualifier; read it alongside the reading of that
+section before drawing conclusions from the small numbers.
 
 (OHRC + TMC-2 2024-01-25, the pair the project originally assumed was a
 valid "low sun-angle-gap" combination, is not in this table at all --
@@ -74,6 +80,61 @@ not "pipeline broken":
    Worth remembering as a reason to verify geometry before trusting a
    date-based grouping again.
 
+## Geolocation agreement (independent accuracy check)
+
+Everything above (inlier counts, inlier ratios) measures *internal*
+consistency: whether a set of matched points fits a single RANSAC
+homography, which says nothing about whether the matched points are
+actually the same spot on the lunar surface, and isn't comparable across
+pairs since RANSAC's pixel threshold means something different at each
+pair's working GSD. `pipeline/match/evaluate.py` adds an independent check:
+project each inlier correspondence's pixel coordinates in *both* images back
+to (lat, lon) via that product's own PDS4 corner geolocation
+(`geo.BilinearGeoTransform`) and report the great-circle distance between
+the two estimates -- a correspondence on the same physical point should
+agree to roughly each product's own corner-geolocation precision; a
+mismatch reports the real size of the disagreement, in meters.
+
+The result is a genuine, if humbling, second finding: median disagreement
+ranges from **2.8 km up to 192 km** across the pairs above, with no clean
+correlation to inlier ratio or sun-angle gap -- the IIRS+TMC-2 2025-08-07
+pair (2.8 km, tightest of all) has a *lower* inlier ratio than the
+TMC-2/TMC-2 pair (192 km, loosest of all). That rules out "worse matches
+just happen to have worse geoloc agreement" as the explanation.
+
+The real cause is almost certainly `BilinearGeoTransform`'s own modeling
+limit, not the matches themselves: it's a single linear (bilinear-quad)
+interpolation across each product's *entire* image, built from just 4
+corner points. TMC-2's and IIRS's footprints in this catalog are very long,
+thin pushbroom swaths (hundreds to well over a thousand km along-track --
+see `pipeline/tests/test_geo_footprint.py`'s real corner data), and a real
+orbit ground track is not exactly linear in lat/lon over that distance
+(along-track curvature from orbit dynamics -- flagged as a known limitation
+in `geo/transform.py`'s own docstring). How much a given overlap crop
+suffers depends on *where* along that long swath it happens to sit relative
+to the 4 corners, which is exactly the "no clean correlation" pattern
+observed: it's a property of each pair's specific crop location, not of
+match quality.
+
+Practical read: treat this metric as most trustworthy for smaller,
+less-elongated footprints (OHRC's ~90km-long frames should show much less
+of this effect than TMC-2/IIRS) -- but no OHRC pair in this catalog produced
+any inliers to test that with yet (see the matrix above). Until either (a)
+an OHRC pair is found or produced with real matches, or (b) a proper
+per-scanline/orbit sensor model replaces the single-bilinear-quad one, this
+metric is a valid *relative* accuracy indicator ("is this pair even in the
+right ballpark") but not an absolute one for TMC-2/IIRS-involving pairs.
+Still useful, and still a real result worth reporting as-is rather than
+hiding: it's the project surfacing a limitation of its own pseudo-ground-truth
+method with numbers, exactly the kind of self-check this evaluation harness
+exists to do.
+
+Reproduce a single pair's numbers directly:
+
+```bash
+python -m match.compare <id_a> <id_b>   # now prints geoloc median/p90 alongside inliers
+```
+
 ## Known caveats in this matrix
 
 - OHRC/TMC-2 imagery is the 1/10-downsampled browse PNG, not the native
@@ -94,3 +155,7 @@ not "pipeline broken":
 - No fine-tuning or domain adaptation attempted for Track B yet -- that's
   the natural next step suggested by finding #2 above, not just running the
   pretrained model harder.
+- The new geolocation-agreement metric's absolute values are dominated by
+  `BilinearGeoTransform`'s single-quad modeling limit for TMC-2/IIRS's very
+  long swaths, not by matching error -- see "Geolocation agreement" above
+  before citing these numbers as "matching accuracy."

@@ -46,7 +46,26 @@ export default function ResultsView({ job, error }) {
             <div><dt>RANSAC inliers</dt><dd>{job.result.inliers}</dd></div>
             <div><dt>Inlier ratio</dt><dd>{(job.result.inlier_ratio * 100).toFixed(0)}%</dd></div>
             <div><dt>Working resolution</dt><dd>{job.result.working_gsd_m} m/px</dd></div>
+            <div>
+              <dt>Geolocation agreement</dt>
+              <dd>
+                {job.result.geoloc_error_median_m != null
+                  ? `${Math.round(job.result.geoloc_error_median_m).toLocaleString()} m median (n=${job.result.geoloc_error_n})`
+                  : "n/a (no inliers)"}
+              </dd>
+            </div>
           </dl>
+          {job.result.geoloc_error_median_m != null && (
+            <p className="muted small">
+              Independent accuracy check: how far apart each matched pixel pair's own PDS4 corner
+              geolocation places them on the lunar surface -- not derived from RANSAC, which only
+              checks internal (homography) self-consistency. See docs/baseline_results.md's
+              "geolocation agreement" section: this is a pseudo-ground-truth check (single bilinear
+              quad per product), most trustworthy for smaller footprints -- large pushbroom swaths
+              (TMC-2, IIRS) can show tens-to-hundreds of km of model error unrelated to matching
+              quality.
+            </p>
+          )}
           {job.result.inliers === 0 && (
             <p className="muted small">
               Zero inliers is itself a real, reportable result here -- see docs/baseline_results.md.

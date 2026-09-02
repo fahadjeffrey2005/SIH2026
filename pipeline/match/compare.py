@@ -17,27 +17,39 @@ import cv2
 
 from .classical import matcher as classical_matcher
 from .classical.demo import browse_gsd_m, draw_matches, load, prep_crop
+from .evaluate import geolocation_errors_m, summarize_errors
 from .learned import matcher as learned_matcher
 
 
 def run_pair(id_a: str, id_b: str, out_dir: Optional[Path] = None) -> dict:
+    """Returns {"results": {method: MatchResult}, "geoloc": {method: summary}}.
+    `geoloc` is the independent accuracy check from match.evaluate -- see
+    that module's docstring for why inlier counts/ratios alone aren't
+    enough to compare methods across pairs at different working GSDs."""
     a = load(id_a)
     b = load(id_b)
     target_gsd = max(browse_gsd_m(a), browse_gsd_m(b))
-    crop_a, _ = prep_crop(a, b, target_gsd)
-    crop_b, _ = prep_crop(b, a, target_gsd)
+    scale_a = browse_gsd_m(a) / target_gsd
+    scale_b = browse_gsd_m(b) / target_gsd
+    crop_a, origin_a = prep_crop(a, b, target_gsd)
+    crop_b, origin_b = prep_crop(b, a, target_gsd)
 
     results = {}
     for method in ("sift", "akaze"):
         results[method] = classical_matcher.match(crop_a, crop_b, method=method)
     results["disk_lightglue"] = learned_matcher.match(crop_a, crop_b)
 
+    geoloc = {}
+    for method, r in results.items():
+        errors = geolocation_errors_m(a, origin_a, scale_a, b, origin_b, scale_b, r.pts_a, r.pts_b)
+        geoloc[method] = summarize_errors(errors)
+
     if out_dir:
         out_dir.mkdir(parents=True, exist_ok=True)
         for method, r in results.items():
             cv2.imwrite(str(out_dir / f"{id_a}__{id_b}__{method}.png"), draw_matches(crop_a, crop_b, r))
 
-    return results
+    return {"results": results, "geoloc": geoloc}
 
 
 def main():
@@ -48,18 +60,22 @@ def main():
     args = ap.parse_args()
 
     try:
-        results = run_pair(args.id_a, args.id_b, Path(args.out_dir) if args.out_dir else None)
+        out = run_pair(args.id_a, args.id_b, Path(args.out_dir) if args.out_dir else None)
     except ValueError as exc:
         raise SystemExit(str(exc)) from None
 
+    results, geoloc = out["results"], out["geoloc"]
     print(f"{args.id_a} <-> {args.id_b}")
-    print(f"{'method':<16} {'keypoints':<14} {'raw matches':<12} {'inliers':<8} {'inlier %':<9}")
+    print(f"{'method':<16} {'keypoints':<14} {'raw matches':<12} {'inliers':<8} {'inlier %':<9} {'geoloc median':<14} {'p90':<10}")
     for method, r in results.items():
         kp = f"{r.keypoints_a}/{r.keypoints_b}"
         raw = getattr(r, "ratio_test_matches", None)
         if raw is None:
             raw = r.raw_matches
-        print(f"{method:<16} {kp:<14} {raw:<12} {r.inliers:<8} {r.inlier_ratio:.0%}")
+        g = geoloc[method]
+        med = f"{g['median_m']:.0f} m" if g["median_m"] is not None else "-"
+        p90 = f"{g['p90_m']:.0f} m" if g["p90_m"] is not None else "-"
+        print(f"{method:<16} {kp:<14} {raw:<12} {r.inliers:<8} {r.inlier_ratio:.0%}      {med:<14} {p90:<10}")
 
 
 if __name__ == "__main__":

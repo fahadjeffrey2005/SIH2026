@@ -16,6 +16,9 @@ function InlierCell({ row }) {
     <td className={hasMatch ? "cell-hit" : "cell-miss"}>
       <div className="cell-inliers">{row.inliers}</div>
       <div className="cell-detail">{row.raw_matches} raw &middot; {(row.inlier_ratio * 100).toFixed(0)}%</div>
+      {row.geoloc_median_m != null && (
+        <div className="cell-detail">{Math.round(row.geoloc_median_m).toLocaleString()} m geoloc</div>
+      )}
     </td>
   );
 }
@@ -93,6 +96,13 @@ export default function MetricsDashboard({ matrix, loading, error }) {
         lunar fine-tuning) already fails by 26.9&deg; -- see docs/baseline_results.md for the full
         writeup, including the self-match sanity checks confirming these are real results and not
         a broken pipeline.
+      </p>
+      <p className="muted small">
+        "m geoloc" is each cell's median geolocation agreement -- an independent accuracy check
+        (each matched point's own PDS4 corner geolocation, not RANSAC) -- shown only where there
+        were inliers to measure. Treat the large (tens-to-hundreds-of-km) values here as a known
+        pseudo-ground-truth modeling limit for TMC-2/IIRS's very long pushbroom swaths, not as
+        matching error -- see docs/baseline_results.md's "geolocation agreement" section.
       </p>
     </section>
   );

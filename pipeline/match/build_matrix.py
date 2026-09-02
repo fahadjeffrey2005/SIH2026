@@ -71,7 +71,8 @@ def build(out_path: Path) -> dict:
     rows = []
     for pair in pairs:
         t0 = time.time()
-        results = run_pair(pair["product_a"], pair["product_b"])
+        out = run_pair(pair["product_a"], pair["product_b"])
+        results, geoloc = out["results"], out["geoloc"]
         elapsed = time.time() - t0
         print(f"{pair['product_a']} <-> {pair['product_b']} "
               f"(gap {pair['incidence_gap_deg']:.1f}°): {elapsed:.1f}s")
@@ -79,6 +80,7 @@ def build(out_path: Path) -> dict:
             raw = getattr(r, "ratio_test_matches", None)
             if raw is None:
                 raw = r.raw_matches
+            g = geoloc[method]
             rows.append({
                 **pair,
                 "method": method,
@@ -87,9 +89,12 @@ def build(out_path: Path) -> dict:
                 "raw_matches": raw,
                 "inliers": r.inliers,
                 "inlier_ratio": r.inlier_ratio,
+                "geoloc_median_m": g["median_m"],
+                "geoloc_p90_m": g["p90_m"],
             })
+            med_str = f"{g['median_m']:.0f}m" if g["median_m"] is not None else "-"
             print(f"  {method:<16} kp={r.keypoints_a}/{r.keypoints_b} "
-                  f"raw={raw} inliers={r.inliers} ({r.inlier_ratio:.0%})")
+                  f"raw={raw} inliers={r.inliers} ({r.inlier_ratio:.0%}) geoloc_median={med_str}")
 
     matrix = {"generated_from": "pipeline/match/build_matrix.py", "rows": rows}
     out_path.write_text(json.dumps(matrix, indent=2))

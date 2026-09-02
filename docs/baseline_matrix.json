@@ -12,7 +12,9 @@
       "keypoints_b": 8001,
       "raw_matches": 15,
       "inliers": 5,
-      "inlier_ratio": 0.3333333333333333
+      "inlier_ratio": 0.3333333333333333,
+      "geoloc_median_m": 192099.57880738575,
+      "geoloc_p90_m": 282034.2577371588
     },
     {
       "product_a": "ch2_tmc_ncf_20240125t0622476078_d_img_d18",
@@ -25,7 +27,9 @@
       "keypoints_b": 5949,
       "raw_matches": 9,
       "inliers": 4,
-      "inlier_ratio": 0.4444444444444444
+      "inlier_ratio": 0.4444444444444444,
+      "geoloc_median_m": 64920.05014853622,
+      "geoloc_p90_m": 308182.1338657001
     },
     {
       "product_a": "ch2_tmc_ncf_20240125t0622476078_d_img_d18",
@@ -38,7 +42,9 @@
       "keypoints_b": 2048,
       "raw_matches": 24,
       "inliers": 4,
-      "inlier_ratio": 0.16666666666666666
+      "inlier_ratio": 0.16666666666666666,
+      "geoloc_median_m": 159241.2394433413,
+      "geoloc_p90_m": 257827.14250551208
     },
     {
       "product_a": "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -51,7 +57,9 @@
       "keypoints_b": 4207,
       "raw_matches": 25,
       "inliers": 7,
-      "inlier_ratio": 0.28
+      "inlier_ratio": 0.28,
+      "geoloc_median_m": 186679.5298731445,
+      "geoloc_p90_m": 295210.2822593753
     },
     {
       "product_a": "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -64,7 +72,9 @@
       "keypoints_b": 614,
       "raw_matches": 10,
       "inliers": 4,
-      "inlier_ratio": 0.4
+      "inlier_ratio": 0.4,
+      "geoloc_median_m": 76796.45374431906,
+      "geoloc_p90_m": 132678.47010250646
     },
     {
       "product_a": "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -77,7 +87,9 @@
       "keypoints_b": 2048,
       "raw_matches": 23,
       "inliers": 0,
-      "inlier_ratio": 0.0
+      "inlier_ratio": 0.0,
+      "geoloc_median_m": null,
+      "geoloc_p90_m": null
     },
     {
       "product_a": "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -90,7 +102,9 @@
       "keypoints_b": 1978,
       "raw_matches": 12,
       "inliers": 5,
-      "inlier_ratio": 0.4166666666666667
+      "inlier_ratio": 0.4166666666666667,
+      "geoloc_median_m": 2832.1518151594596,
+      "geoloc_p90_m": 2867.805692222493
     },
     {
       "product_a": "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -103,7 +117,9 @@
       "keypoints_b": 307,
       "raw_matches": 14,
       "inliers": 3,
-      "inlier_ratio": 0.21428571428571427
+      "inlier_ratio": 0.21428571428571427,
+      "geoloc_median_m": 14337.709373322019,
+      "geoloc_p90_m": 51754.61265954915
     },
     {
       "product_a": "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -116,7 +132,9 @@
       "keypoints_b": 2048,
       "raw_matches": 0,
       "inliers": 0,
-      "inlier_ratio": 0.0
+      "inlier_ratio": 0.0,
+      "geoloc_median_m": null,
+      "geoloc_p90_m": null
     },
     {
       "product_a": "ch2_ohr_ncp_20210405t1606536730_d_img_d18",
@@ -129,7 +147,9 @@
       "keypoints_b": 57,
       "raw_matches": 0,
       "inliers": 0,
-      "inlier_ratio": 0.0
+      "inlier_ratio": 0.0,
+      "geoloc_median_m": null,
+      "geoloc_p90_m": null
     },
     {
       "product_a": "ch2_ohr_ncp_20210405t1606536730_d_img_d18",
@@ -142,7 +162,9 @@
       "keypoints_b": 0,
       "raw_matches": 0,
       "inliers": 0,
-      "inlier_ratio": 0.0
+      "inlier_ratio": 0.0,
+      "geoloc_median_m": null,
+      "geoloc_p90_m": null
     },
     {
       "product_a": "ch2_ohr_ncp_20210405t1606536730_d_img_d18",
@@ -155,7 +177,9 @@
       "keypoints_b": 994,
       "raw_matches": 1,
       "inliers": 0,
-      "inlier_ratio": 0.0
+      "inlier_ratio": 0.0,
+      "geoloc_median_m": null,
+      "geoloc_p90_m": null
     },
     {
       "product_a": "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -168,7 +192,9 @@
       "keypoints_b": 18,
       "raw_matches": 0,
       "inliers": 0,
-      "inlier_ratio": 0.0
+      "inlier_ratio": 0.0,
+      "geoloc_median_m": null,
+      "geoloc_p90_m": null
     },
     {
       "product_a": "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -181,7 +207,9 @@
       "keypoints_b": 0,
       "raw_matches": 0,
       "inliers": 0,
-      "inlier_ratio": 0.0
+      "inlier_ratio": 0.0,
+      "geoloc_median_m": null,
+      "geoloc_p90_m": null
     },
     {
       "product_a": "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -194,7 +222,9 @@
       "keypoints_b": 156,
       "raw_matches": 0,
       "inliers": 0,
-      "inlier_ratio": 0.0
+      "inlier_ratio": 0.0,
+      "geoloc_median_m": null,
+      "geoloc_p90_m": null
     }
   ]
 }
