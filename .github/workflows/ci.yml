@@ -1,0 +1,82 @@
+name: CI
+
+# Three independent jobs, one per subproject (pipeline/backend share a
+# Python env and a built catalog; frontend is fully self-contained). All
+# three run against exactly what a fresh `git clone` gives you -- no
+# secrets, no external downloads of raw PDS4 zips. That's a deliberate
+# constraint, not an oversight: this repo's data/raw/** raster files (the
+# actual OHRC/TMC-2/IIRS imagery, hundreds of MB to 2GB+ each) are
+# intentionally gitignored (see .gitignore's comment), so CI exercises the
+# code against the small real PDS4 label files and browse/native-crop PNGs
+# that ARE committed -- verified locally (git worktree of a clean checkout)
+# to be sufficient for every currently-committed test in both suites before
+# this workflow was written, not assumed.
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pipeline dependencies
+        run: pip install -r pipeline/requirements.txt
+      - name: Build the catalog from the committed PDS4 labels
+        working-directory: pipeline
+        run: python -m ingest.build_catalog
+      # Full suite, including the `slow` DISK+LightGlue tests -- those
+      # download ~50MB of pretrained weights from GitHub on first run (see
+      # pipeline/match/learned/matcher.py's docstring for why GitHub
+      # specifically). If that download ever becomes CI's flaky point,
+      # drop back to `pytest -m "not slow"` here rather than skipping the
+      # job entirely.
+      - name: Run pipeline tests
+        working-directory: pipeline
+        run: pytest -v
+
+  backend:
+    runs-on: ubuntu-latest
+    needs: pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend + pipeline dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r pipeline/requirements.txt
+      - name: Build the catalog from the committed PDS4 labels
+        working-directory: pipeline
+        run: python -m ingest.build_catalog
+      - name: Run backend tests
+        working-directory: backend
+        run: pytest -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Run component/integration tests
+        working-directory: frontend
+        run: npm test
+      - name: Production build
+        working-directory: frontend
+        run: npm run build

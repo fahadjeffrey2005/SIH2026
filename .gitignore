@@ -1,6 +1,19 @@
 ## Data (large binaries — never commit)
 data/raw/**
 data/processed/**
+# Re-include directories so git will traverse into them (a file can't be
+# un-ignored if its parent directory is still excluded), then re-include
+# only the PDS4 .xml labels within -- small plaintext metadata/geometry (a
+# few KB to ~75KB each), not imagery. Everything else under data/raw/**
+# (the actual .img/.qub rasters, ancillary .oat/.lbr/.spm/.hdr files, browse
+# thumbnails) stays excluded via the blanket rule above plus the extension
+# rules below. ingest.build_catalog needs these labels to populate
+# data/catalog.sqlite (also gitignored, *.sqlite below) from a clean
+# checkout -- verified in CI: the full pipeline + backend pytest suites
+# pass against just these labels plus the already-committed data/browse/
+# and data/native_crops/ PNGs, no raw raster needed for any committed test.
+!data/raw/**/
+!data/raw/**/*.xml
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 *.zip

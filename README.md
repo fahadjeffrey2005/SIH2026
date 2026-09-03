@@ -54,19 +54,32 @@ All 4 planned screens working end-to-end against a live backend: catalog browser
 
 ## Testing
 
-Both `pipeline/` and `backend/` have pytest suites that run against real project data (not mocks) -- the same "verify against ground truth" discipline used throughout this build. Several tests are permanent regressions for real bugs found during development (corner-block ambiguity, the `overlap_crop` extrapolation blowup, the OHRC-2021/TMC-2-2024-01-25 near-miss, the DISK OOM crash, the SystemExit-vs-ValueError job-hang bug).
+`pipeline/`, `backend/`, and `frontend/` each have their own test suite, and all three run in CI on every push/PR (`.github/workflows/ci.yml`) against nothing but a fresh `git clone` -- no secrets, no downloading the raw PDS4 zips (those stay gitignored for size; the small real PDS4 `.xml` labels needed to build the catalog *are* committed, see `.gitignore`'s comment on that).
+
+`pipeline/` and `backend/` run against real project data (not mocks) -- the same "verify against ground truth" discipline used throughout this build. Several tests are permanent regressions for real bugs found during development (corner-block ambiguity, the `overlap_crop` extrapolation blowup, the OHRC-2021/TMC-2-2024-01-25 near-miss, the DISK OOM crash, the SystemExit-vs-ValueError job-hang bug, the Track B keypoint-starvation fix).
 
 ```bash
 cd pipeline
 pip install -r requirements.txt
+python -m ingest.build_catalog   # populate data/catalog.sqlite from the committed PDS4 labels (needed by backend tests too)
 pytest                    # full suite, incl. slow DISK+LightGlue tests (downloads weights on first run)
-pytest -m "not slow"      # fast subset only (~3s) -- skips anything needing torch/kornia
+pytest -m "not slow"      # fast subset only (~1min) -- skips anything needing torch/kornia
 ```
 
 ```bash
 cd backend
 pip install -r requirements.txt -r ../pipeline/requirements.txt
 pytest                    # exercises the live FastAPI app via TestClient against data/catalog.sqlite
+```
+
+`frontend/` has Vitest + React Testing Library component tests for all 4 screens plus an `App.jsx` integration test that mocks only `api.js` and drives the real component tree (catalog load -> select -> suggest -> submit -> poll -> render result):
+
+```bash
+cd frontend
+npm install
+npm test        # component + integration tests (jsdom, no real backend needed)
+npm run lint    # oxlint
+npm run build   # production build
 ```
 
 ## Data
