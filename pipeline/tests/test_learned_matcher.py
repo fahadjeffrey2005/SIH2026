@@ -7,6 +7,8 @@ hosts specifically). Skip with `pytest -m "not slow"` if torch/kornia
 aren't installed or the network is unavailable.
 """
 
+import inspect
+
 import cv2
 import numpy as np
 import pytest
@@ -15,6 +17,23 @@ torch = pytest.importorskip("torch")
 pytest.importorskip("kornia")
 
 from match.learned.matcher import match  # noqa: E402
+
+
+def test_default_max_keypoints_is_4096():
+    """Pins match()'s max_keypoints default at 4096, not the original 2048.
+
+    Regression guard for a real finding (docs/baseline_results.md's "Track B
+    keypoint-budget fix"): at 2048, DISK+LightGlue found zero matches on 3 of
+    5 geometry-confirmed overlapping pairs in this project's catalog,
+    including one (26.9 deg) where classical SIFT/AKAZE found 7 and 4
+    inliers respectively on the same crop. Doubling the cap to 4096 recovered
+    4 real RANSAC-confirmed inliers on all 3 previously-zero pairs with no
+    regression on the pair that already worked -- silently dropping this
+    back to 2048 would reintroduce that regression without any test noticing,
+    since none of the `slow` tests below assert on inlier counts (they use
+    synthetic images, not the real catalog crops the budget was tuned
+    against)."""
+    assert inspect.signature(match).parameters["max_keypoints"].default == 4096
 
 
 def _synthetic_textured_image(size: int = 400, seed: int = 0) -> np.ndarray:

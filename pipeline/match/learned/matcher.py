@@ -89,7 +89,7 @@ def _to_tensor(img: np.ndarray, max_pixels: int = 2_000_000) -> tuple[torch.Tens
 def match(
     img_a: np.ndarray,
     img_b: np.ndarray,
-    max_keypoints: int = 2048,
+    max_keypoints: int = 4096,
     ransac_thresh: float = 4.0,
     checkpoint: str = "depth",
 ) -> LearnedMatchResult:
@@ -107,6 +107,21 @@ def match(
     short axis
     down to ~30-40px and destroyed almost all cross-track texture -- worth
     remembering if a change here reintroduces that).
+
+    `max_keypoints` default was raised from 2048 to 4096 after finding this
+    project's earlier "DISK+LightGlue fails past 26.9 deg" result was partly
+    a keypoint-budget artifact, not (only) domain gap: these crops are heavily
+    downsampled browse thumbnails or native rasters with thin, low-texture
+    swaths, and DISK was hitting its 2048 cap without covering the crop well
+    enough for LightGlue to find sufficient correspondences. Doubling it
+    recovered real, RANSAC-confirmed inliers on 3 of the 4 previously-zero
+    pairs (26.9 deg, 34.0 deg browse, and 34.7 deg native) with zero
+    regression on the one pair that already worked (7.1 deg) -- see
+    docs/baseline_results.md's "Track B keypoint-budget fix" section for the
+    full before/after numbers. It did *not* help the two pairs where OHRC's
+    own browse crop detects too few keypoints to reach the old cap in the
+    first place (449/994 and 279/156) -- confirming that specific failure is
+    a data-sparsity issue, not a tunable-budget one.
     """
     disk, lightglue = _get_models(checkpoint)
     ta, scale_a = _to_tensor(img_a)

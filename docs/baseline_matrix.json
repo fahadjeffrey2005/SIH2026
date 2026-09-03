@@ -38,13 +38,13 @@
       "instrument_b": "TMC-2",
       "incidence_gap_deg": 7.1255510000000015,
       "method": "disk_lightglue",
-      "keypoints_a": 2048,
-      "keypoints_b": 2048,
-      "raw_matches": 24,
+      "keypoints_a": 4096,
+      "keypoints_b": 4096,
+      "raw_matches": 25,
       "inliers": 4,
-      "inlier_ratio": 0.16666666666666666,
-      "geoloc_median_m": 159241.2394433413,
-      "geoloc_p90_m": 257827.14250551208
+      "inlier_ratio": 0.16,
+      "geoloc_median_m": 197113.54399449113,
+      "geoloc_p90_m": 352318.64650020597
     },
     {
       "product_a": "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -83,13 +83,13 @@
       "instrument_b": "TMC-2",
       "incidence_gap_deg": 26.856799,
       "method": "disk_lightglue",
-      "keypoints_a": 2048,
-      "keypoints_b": 2048,
-      "raw_matches": 23,
-      "inliers": 0,
-      "inlier_ratio": 0.0,
-      "geoloc_median_m": null,
-      "geoloc_p90_m": null
+      "keypoints_a": 4096,
+      "keypoints_b": 4096,
+      "raw_matches": 11,
+      "inliers": 4,
+      "inlier_ratio": 0.36363636363636365,
+      "geoloc_median_m": 230124.41480254702,
+      "geoloc_p90_m": 393849.39821741247
     },
     {
       "product_a": "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -128,13 +128,13 @@
       "instrument_b": "TMC-2",
       "incidence_gap_deg": 33.98235,
       "method": "disk_lightglue",
-      "keypoints_a": 2048,
-      "keypoints_b": 2048,
-      "raw_matches": 0,
-      "inliers": 0,
-      "inlier_ratio": 0.0,
-      "geoloc_median_m": null,
-      "geoloc_p90_m": null
+      "keypoints_a": 4096,
+      "keypoints_b": 4096,
+      "raw_matches": 17,
+      "inliers": 4,
+      "inlier_ratio": 0.23529411764705882,
+      "geoloc_median_m": 20235.343406812768,
+      "geoloc_p90_m": 28902.32980888999
     },
     {
       "product_a": "ch2_ohr_ncp_20210405t1606536730_d_img_d18",

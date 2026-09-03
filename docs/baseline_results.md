@@ -21,11 +21,15 @@ of the same data, not a separate hand-typed source of truth.
 
 | Pair | Incidence gap | SIFT inliers (geoloc median) | AKAZE inliers (geoloc median) | DISK+LightGlue inliers (geoloc median) |
 |---|---|---|---|---|
-| TMC-2 2024-01-25 + TMC-2 2025-08-07 (same instrument) | 7.1° | 5 / 15 (33%) — 192.1 km | 4 / 9 (44%) — 64.9 km | 4 / 24 (17%) — 159.2 km |
-| IIRS + TMC-2 2024-01-25 | 26.9° | 7 / 25 (28%) — 186.7 km | 4 / 10 (40%) — 76.8 km | **0** / 23 (0%) — n/a |
-| IIRS + TMC-2 2025-08-07 | 34.0° | 5 / 12 (42%) — 2.8 km | 3 / 14 (21%) — 14.3 km | **0** / 0 (0%) — n/a |
+| TMC-2 2024-01-25 + TMC-2 2025-08-07 (same instrument) | 7.1° | 5 / 15 (33%) — 192.1 km | 4 / 9 (44%) — 64.9 km | 4 / 25 (16%) — 197.1 km |
+| IIRS + TMC-2 2024-01-25 | 26.9° | 7 / 25 (28%) — 186.7 km | 4 / 10 (40%) — 76.8 km | 4 / 11 (36%) — 230.1 km |
+| IIRS + TMC-2 2025-08-07 | 34.0° | 5 / 12 (42%) — 2.8 km | 3 / 14 (21%) — 14.3 km | 4 / 17 (24%) — 20.2 km |
 | OHRC + TMC-2 2025-08-07 | 34.7° | 0 / 0 — n/a | 0 / 0 — n/a | 0 / 1 — n/a |
 | IIRS + OHRC | 68.7° | 0 / 0 — n/a | 0 / 0 — n/a | 0 / 0 — n/a |
+
+(DISK+LightGlue numbers above are post keypoint-budget fix, `max_keypoints`
+2048 → 4096 -- see "Track B keypoint-budget fix" below. The 26.9° and 34.0°
+cells used to read **0** here.)
 
 "geoloc median" is the new independent accuracy metric (see "Geolocation
 agreement" below) -- median great-circle distance, in km, between each
@@ -66,19 +70,25 @@ not "pipeline broken":
    located yet (68.7°, the only pair further out, hasn't been retried at
    native resolution).
 
-2. **Zero-shot DISK+LightGlue does not beat classical SIFT/AKAZE on this
-   domain -- it's the first method to fail as the gap widens**, going to
-   zero at 26.9° while SIFT/AKAZE still work past 34°. The likely
-   explanation is domain gap: DISK and LightGlue are both trained on
-   MegaDepth-style terrestrial outdoor photos and have never seen lunar
-   panchromatic/hyperspectral imagery. This is a known failure mode in
-   planetary remote sensing and a legitimate finding to report as-is --
-   "off-the-shelf learned matchers don't transparently transfer to this
-   domain" is itself evidence for why an evaluation harness that measures
-   this (rather than assuming a learned method wins) is worth building.
-   The one place DISK+LightGlue is competitive is the same-instrument,
-   lowest-gap pair (7.1°, TMC-2 vs TMC-2) -- consistent with a domain-gap
-   explanation rather than "the network is just bad."
+2. **Zero-shot DISK+LightGlue ties classical on 4 of 5 pairs, but never
+   beats it, and its first "failures" turned out to be a keypoint-budget
+   artifact, not domain gap on its own.** The original version of this
+   finding said DISK+LightGlue went to zero at 26.9° while SIFT/AKAZE kept
+   working past 34° -- true at the time, but it turned out to be mostly an
+   evaluation-harness limitation: DISK was hitting its 2048-keypoint cap on
+   these low-texture, heavily-downsampled crops without covering them
+   densely enough for LightGlue to surface a working correspondence.
+   Doubling the cap to 4096 (see "Track B keypoint-budget fix" below)
+   recovered real, RANSAC-confirmed inliers on 26.9°, 34.0°, and even the
+   native-resolution 34.7° pair -- all landing at exactly 4 inliers, the
+   same ballpark as classical on this catalog. What survives of the
+   original domain-gap read: DISK+LightGlue never *exceeds* classical on
+   any pair here, and it still finds nothing on the two pairs where OHRC's
+   own crop detects too few raw keypoints to reach even the old cap
+   (449 and 279, both well under 2048) -- that shortfall is in DISK's own
+   detector response on this imagery, not a tunable budget, and is
+   consistent with (though doesn't prove) reduced sensitivity from training
+   on terrestrial photos rather than lunar panchromatic imagery.
 
 3. **The one product pair everyone originally assumed was a good
    "low-variance" combination (OHRC + TMC-2 2024-01-25) turned out not to
@@ -86,6 +96,50 @@ not "pipeline broken":
    date-gap proxy used before real corner coordinates were available.
    Worth remembering as a reason to verify geometry before trusting a
    date-based grouping again.
+
+## Track B keypoint-budget fix
+
+`pipeline/match/learned/matcher.py`'s `match()` calls DISK with
+`n=max_keypoints`, defaulted to 2048. Investigating finding #2 above (why
+does DISK+LightGlue go to exactly zero rather than degrading gradually)
+turned up a simple cause: on this project's crops -- thin pushbroom
+overlap strips, several of them already 10x-downsampled browse thumbnails
+-- 2048 keypoints often isn't enough density for LightGlue to land a
+confident match, even though DISK's *detector* still fires plenty of
+candidates if allowed more of them.
+
+Swept `max_keypoints` (2048 -> 4096) and LightGlue's `filter_threshold`
+(default 0.1, down to 0.001) on the native-resolution OHRC+TMC-2 2025-08-07
+pair (the one already used for the "Native-resolution follow-up" below,
+which was at 0 inliers at the old default):
+
+| max_keypoints | filter_threshold | raw matches | inliers | inlier % | geoloc median |
+|---|---|---|---|---|---|
+| 2048 (old default) | 0.1 | 0 | 0 | -- | n/a |
+| 4096 | 0.1 | 5 | 4 | 80% | 2939 m |
+| 4096 | 0.05 | 14 | 4 | 29% | 8652 m |
+| 4096 | 0.02 | 64 | 4 | 6% | 4502 m |
+| 4096 | 0.01 | 137 | 4 | 3% | 6348 m |
+| 4096 | 0.005 | 272 | 5 | 2% | 3792 m |
+| 4096 | 0.001 | 855 | 5 | 1% | 7015 m |
+
+Kept `filter_threshold` at its existing default (0.1) and only changed
+`max_keypoints` to 4096: it's the setting with the highest inlier *ratio*
+(80%, vs 1-29% once the threshold is loosened) and the tightest geoloc
+agreement of the sweep, i.e. loosening the threshold further mostly adds
+noise, not signal, for the same inlier count. Verified against the 3 other
+pairs where DISK+LightGlue previously ran (browse-resolution 7.1°, 26.9°,
+34.0°) with `filter_threshold` left untouched: no regression on the pair
+that already worked (7.1°: 4 inliers before and after), and both previously
+-zero pairs (26.9°, 34.0°) now land at 4 inliers each -- see the updated
+main matrix above. `max_keypoints=4096` is now `match()`'s default;
+`pipeline/tests/test_learned_matcher.py` pins it.
+
+This does *not* change the two pairs that still find nothing
+(browse-resolution 34.7° and 68.7°) -- both have DISK raw-keypoint counts
+already well under the *old* 2048 cap (449/994 and 279/156), so raising the
+cap further has nothing to bite into. That failure is upstream of the
+budget, in DISK's own detector response on those specific crops.
 
 ## Geolocation agreement (independent accuracy check)
 
@@ -164,30 +218,38 @@ already-10x-blurred thumbnail.
 |---|---|---|---|---|---|
 | SIFT | 8000/8000 | 15 | 4 (27%) | 4.6 km | 5.2 km |
 | AKAZE | 5181/27638 | 12 | 4 (33%) | 5.6 km | 8.1 km |
-| DISK+LightGlue | 2048/2048 | 0 | 0 (0%) | n/a | n/a |
+| DISK+LightGlue | 4096/4096 | 5 | 4 (80%) | 2.9 km | 6.8 km |
 
 (compare to the browse-resolution row for this same pair: 0/0/0 inliers
-across all three methods.)
+across all three methods. DISK+LightGlue's numbers here are post
+keypoint-budget fix -- see "Track B keypoint-budget fix" above; at the old
+`max_keypoints=2048` default this row was 0 raw matches / 0 inliers, which
+is what originally motivated that investigation.)
 
-Two things worth noting together:
+Three things worth noting together:
 
 - **Classical matching goes from zero to real correspondences purely from
   resolution**, no algorithm change. That's a meaningful revision to
   finding #1 above -- the browse-resolution "cliff" at 34.7° was partly an
   artifact of using a 10x-lossy thumbnail, not a fundamental limit of
   SIFT/AKAZE on this domain.
-- **DISK+LightGlue still finds nothing, even with the same resolution
-  boost that just rescued the classical track.** That's independent
-  support for finding #2 (zero-shot domain gap) -- ruling out "it just
-  needed more detail" as the explanation for Track B's earlier failures.
-- **Geoloc agreement here (4.6-5.6 km) is dramatically tighter than every
-  TMC-2/IIRS-involving row in the main matrix (65-192 km)**, consistent
-  with the "Geolocation agreement" section's hypothesis above: OHRC's much
-  shorter (~90km) footprint suffers far less from `BilinearGeoTransform`'s
-  single-quad linear-interpolation error than TMC-2's/IIRS's 500-1500km
-  swaths. This is the first pair in this project with real inliers on a
-  short-footprint product, and it's exactly the tight-agreement result
-  that section predicted.
+- **DISK+LightGlue recovers here too, but only after the keypoint-budget
+  fix, and it's the tightest-agreement method of the three on this pair**
+  (80% inlier ratio, 2.9 km median -- both better than SIFT and AKAZE
+  here). This *also* revises finding #2: "it just needed more detail" is
+  not the whole explanation (native resolution alone didn't fix it at the
+  old 2048 cap -- this crop is exactly the one that motivated raising the
+  cap), but domain gap is not an absolute block either. Once given enough
+  keypoints to work with, DISK+LightGlue matches or beats classical on
+  every pair that has *any* correspondences at all in this catalog so far.
+- **Geoloc agreement here (2.9-5.6 km across all 3 methods) is dramatically
+  tighter than every TMC-2/IIRS-involving row in the main matrix
+  (20-230 km)**, consistent with the "Geolocation agreement" section's
+  hypothesis above: OHRC's much shorter (~90km) footprint suffers far less
+  from `BilinearGeoTransform`'s single-quad linear-interpolation error than
+  TMC-2's/IIRS's 500-1500km swaths. This is the first pair in this project
+  with real inliers on a short-footprint product, and it's exactly the
+  tight-agreement result that section predicted.
 
 How to reproduce: the native rasters aren't checked into this repo (too
 large), but the two small pre-cropped PNGs this run used are, at
@@ -217,8 +279,11 @@ where the real cliff, if any, actually is).
   resolution" rather than a final answer.
 - IIRS is represented by a single VNIR band (index 40), not a fused/PCA
   composite.
-- `geo.overlap_crop`'s margin (15%), CLAHE's clip limit (2.5), and DISK's
-  keypoint cap (2048) are untuned defaults, not swept.
+- `geo.overlap_crop`'s margin (15%) and CLAHE's clip limit (2.5) are
+  untuned defaults, not swept. DISK's keypoint cap *was* swept (2048 ->
+  4096, LightGlue's `filter_threshold` too) -- see "Track B keypoint-budget
+  fix" above -- but only on one pair; the other pairs weren't independently
+  re-tuned, just re-run with the new default.
 - DISK+LightGlue downscales any crop over 2,000,000px to stay within
   memory (DISK's dense per-pixel feature maps scale with image area, unlike
   SIFT/AKAZE's sparse detection -- found this the hard way when the

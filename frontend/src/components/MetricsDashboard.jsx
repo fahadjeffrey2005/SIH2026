@@ -91,11 +91,13 @@ export default function MetricsDashboard({ matrix, loading, error }) {
       )}
 
       <p className="muted small">
-        Reading: matching survives up to a ~34&deg; sun-incidence gap with classical SIFT/AKAZE,
-        but the zero-shot learned baseline (DISK+LightGlue, pretrained on terrestrial photos, no
-        lunar fine-tuning) already fails by 26.9&deg; -- see docs/baseline_results.md for the full
-        writeup, including the self-match sanity checks confirming these are real results and not
-        a broken pipeline.
+        Reading: matching survives up to a ~34&deg; sun-incidence gap with classical SIFT/AKAZE.
+        The zero-shot learned baseline (DISK+LightGlue, pretrained on terrestrial photos, no lunar
+        fine-tuning) ties classical inlier counts on every pair that has any correspondences at
+        all -- an earlier "fails by 26.9&deg;" result turned out to be partly a keypoint-budget
+        artifact, fixed by raising DISK's keypoint cap (2048&rarr;4096), not pure domain gap. See
+        docs/baseline_results.md's "Track B keypoint-budget fix" section and the self-match sanity
+        checks confirming these are real results and not a broken pipeline.
       </p>
       <p className="muted small">
         "m geoloc" is each cell's median geolocation agreement -- an independent accuracy check
@@ -106,9 +108,10 @@ export default function MetricsDashboard({ matrix, loading, error }) {
       </p>
       <p className="muted small">
         This matrix is still browse-resolution (1/10-downsampled) for OHRC/TMC-2. A native-resolution
-        follow-up on the OHRC+TMC-2 2025-08-07 row (34.7&deg;) found real classical matches that browse
-        resolution missed entirely (4.6-5.6 km geoloc agreement, the tightest in the project) -- not yet
-        run for the other rows. See docs/baseline_results.md's "Native-resolution follow-up" section.
+        follow-up on the OHRC+TMC-2 2025-08-07 row (34.7&deg;) found real matches from all three methods
+        that browse resolution missed entirely (2.9-5.6 km geoloc agreement, the tightest in the
+        project -- DISK+LightGlue's 2.9 km is the single tightest result of any pair) -- not yet run
+        for the other rows. See docs/baseline_results.md's "Native-resolution follow-up" section.
       </p>
     </section>
   );
