@@ -22,10 +22,22 @@ from .learned import matcher as learned_matcher
 
 
 def run_pair(id_a: str, id_b: str, out_dir: Optional[Path] = None) -> dict:
-    """Returns {"results": {method: MatchResult}, "geoloc": {method: summary}}.
+    """Returns {"results": {method: MatchResult}, "geoloc": {method: summary},
+    "point_errors": {method: np.ndarray}, "context": {...}}.
+
     `geoloc` is the independent accuracy check from match.evaluate -- see
     that module's docstring for why inlier counts/ratios alone aren't
-    enough to compare methods across pairs at different working GSDs."""
+    enough to compare methods across pairs at different working GSDs.
+    `point_errors` is that same check's *per-correspondence* array before
+    it gets collapsed into `geoloc`'s median/p90 summary -- kept around for
+    callers (build_matrix.py's interactive-viewer export) that want to show
+    an individual matched point's own disagreement, not just the aggregate.
+
+    `context` exposes the loaded products, crops, and crop-placement info
+    (origin/scale) this function already computed internally, so a caller
+    can re-run additional method variants against the exact same crops
+    (e.g. build_matrix.py's old-vs-new DISK+LightGlue keypoint-budget
+    comparison) without reloading/re-cropping from scratch."""
     a = load(id_a)
     b = load(id_b)
     target_gsd = max(browse_gsd_m(a), browse_gsd_m(b))
@@ -40,8 +52,10 @@ def run_pair(id_a: str, id_b: str, out_dir: Optional[Path] = None) -> dict:
     results["disk_lightglue"] = learned_matcher.match(crop_a, crop_b)
 
     geoloc = {}
+    point_errors = {}
     for method, r in results.items():
         errors = geolocation_errors_m(a, origin_a, scale_a, b, origin_b, scale_b, r.pts_a, r.pts_b)
+        point_errors[method] = errors
         geoloc[method] = summarize_errors(errors)
 
     if out_dir:
@@ -49,7 +63,13 @@ def run_pair(id_a: str, id_b: str, out_dir: Optional[Path] = None) -> dict:
         for method, r in results.items():
             cv2.imwrite(str(out_dir / f"{id_a}__{id_b}__{method}.png"), draw_matches(crop_a, crop_b, r))
 
-    return {"results": results, "geoloc": geoloc}
+    context = {
+        "loaded_a": a, "loaded_b": b,
+        "crop_a": crop_a, "crop_b": crop_b,
+        "origin_a": origin_a, "origin_b": origin_b,
+        "scale_a": scale_a, "scale_b": scale_b,
+    }
+    return {"results": results, "geoloc": geoloc, "point_errors": point_errors, "context": context}
 
 
 def main():

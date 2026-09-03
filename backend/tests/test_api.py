@@ -166,3 +166,32 @@ def test_metrics_matrix():
     row = rows[0]
     for key in ("product_a", "product_b", "method", "inliers", "inlier_ratio"):
         assert key in row
+
+
+def test_metrics_matrix_crop_serves_a_real_row_image():
+    """The interactive correspondence viewer's whole premise is that
+    crop_image_a/crop_image_b (from GET /metrics/matrix) are directly
+    loadable via GET /metrics/matrix/crop/{filename} -- exercised here
+    end-to-end against the real docs/baseline_matrix.json + docs/img/
+    matrix_cells/ build_matrix.py already produced, not a mocked filename."""
+    rows = client.get("/metrics/matrix").json()["rows"]
+    filename = rows[0]["crop_image_a"]
+
+    resp = client.get(f"/metrics/matrix/crop/{filename}")
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "image/png"
+    assert len(resp.content) > 0
+
+
+def test_metrics_matrix_crop_404s_for_unknown_filename():
+    resp = client.get("/metrics/matrix/crop/ch2_fake__ch2_alsofake__a.png")
+    assert resp.status_code == 404
+
+
+def test_metrics_matrix_crop_rejects_path_traversal():
+    """_SAFE_FILENAME is a defense-in-depth guard against a filename that
+    doesn't match build_matrix.py's own naming convention -- confirm a
+    traversal attempt 404s rather than escaping CELL_IMAGE_DIR."""
+    resp = client.get("/metrics/matrix/crop/..%2F..%2F..%2Fetc%2Fpasswd")
+    assert resp.status_code == 404

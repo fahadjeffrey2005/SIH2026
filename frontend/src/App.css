@@ -270,3 +270,187 @@
   font-size: 0.75rem;
   color: #777;
 }
+
+.cell-hit-weak {
+  background: #f2fbec;
+}
+
+.cell-hit-weak .cell-inliers {
+  color: #4c8c3a;
+}
+
+.matrix-cell-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  padding: 0.15rem 0.3rem;
+  margin: -0.15rem -0.3rem;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.matrix-cell-btn:hover {
+  border-color: #1a1a2e;
+  background: rgba(26, 26, 46, 0.05);
+}
+
+.matrix-cell-btn-selected {
+  border-color: #1a1a2e;
+  background: rgba(26, 26, 46, 0.08);
+}
+
+.viewer-expanded {
+  border: 1px solid #1a1a2e;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  background: #fafafe;
+}
+
+.viewer-expanded-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.viewer-expanded-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.viewer-expanded-close {
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 6px;
+  padding: 0.25rem 0.7rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.budget-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.viewer-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .viewer-panes {
+    grid-template-columns: 1fr;
+  }
+}
+
+.zoom-pane {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #111;
+}
+
+.zoom-pane-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.3rem 0.5rem;
+  background: #f5f5f7;
+  border-bottom: 1px solid #ddd;
+}
+
+.zoom-pane-toolbar .mono {
+  color: #333;
+  word-break: break-all;
+}
+
+.zoom-pane-controls {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.zoom-pane-controls button {
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 0.9rem;
+}
+
+.zoom-pane-controls button[aria-label="Reset view"] {
+  width: auto;
+  padding: 0 0.4rem;
+  font-size: 0.75rem;
+}
+
+.zoom-pane-viewport {
+  position: relative;
+  /* Taller than a typical image-crop viewer needs, because several of
+     this project's real crops are extreme pushbroom-swath strips (tens of
+     thousands of pixels tall, a few hundred wide) with matched points
+     scattered along most of that length -- more viewport height directly
+     buys a less-zoomed-out (and so more legible) initial framing that
+     still fits every point. */
+  height: 520px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.zoom-pane-viewport:active {
+  cursor: grabbing;
+}
+
+.zoom-pane-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.zoom-pane-content img {
+  display: block;
+  max-width: none;
+  user-select: none;
+}
+
+.zoom-pane-points {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.match-point {
+  fill: rgba(255, 122, 24, 0.35);
+  stroke: #ff7a18;
+  stroke-width: 2;
+  pointer-events: all;
+  cursor: pointer;
+  transition: r 0.1s ease;
+}
+
+.match-point-active {
+  fill: rgba(255, 40, 40, 0.55);
+  stroke: #ff2828;
+  stroke-width: 3;
+}
+
+.hover-readout {
+  margin-top: 0.5rem;
+  font-weight: 600;
+  color: #1a1a2e;
+}

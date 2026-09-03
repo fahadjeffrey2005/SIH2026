@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import MetricsDashboard from "./MetricsDashboard";
@@ -27,6 +27,10 @@ const ROWS = [
     raw_matches: 11,
     inlier_ratio: 0,
     geoloc_median_m: null,
+    crop_image_a: "iir_hw1_vs_tmc_d18_a.png",
+    crop_image_b: "iir_hw1_vs_tmc_d18_b.png",
+    points_a: [],
+    points_b: [],
   },
 ];
 
@@ -60,5 +64,28 @@ describe("MetricsDashboard", () => {
   it("shows geoloc agreement only for cells that actually had inliers to measure", () => {
     render(<MetricsDashboard matrix={{ rows: ROWS }} loading={false} error={null} />);
     expect(screen.getByText(/186,680 m geoloc/)).toBeInTheDocument();
+  });
+
+  it("clicking a matrix cell expands the correspondence viewer for that row below the table", () => {
+    render(<MetricsDashboard matrix={{ rows: ROWS }} loading={false} error={null} />);
+    expect(screen.queryByRole("heading", { name: /DISK\+LightGlue/ })).not.toBeInTheDocument();
+
+    const diskCell = screen.getAllByText("0", { selector: ".cell-inliers" })[0];
+    fireEvent.click(diskCell.closest("button"));
+
+    expect(screen.getByRole("heading", { name: /IIRS vs TMC-2.*DISK\+LightGlue/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /close viewer/i })).toBeInTheDocument();
+  });
+
+  it("closing the expanded viewer hides it again", () => {
+    render(<MetricsDashboard matrix={{ rows: ROWS }} loading={false} error={null} />);
+    const diskCell = screen.getAllByText("0", { selector: ".cell-inliers" })[0];
+    fireEvent.click(diskCell.closest("button"));
+    expect(screen.getByRole("button", { name: /close viewer/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /close viewer/i }));
+
+    expect(screen.queryByRole("button", { name: /close viewer/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /DISK\+LightGlue/ })).not.toBeInTheDocument();
   });
 });

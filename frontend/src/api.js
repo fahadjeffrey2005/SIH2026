@@ -45,3 +45,7 @@ export function overlayUrl(jobId) {
 export function getMetricsMatrix() {
   return request("/metrics/matrix");
 }
+
+export function matrixCropUrl(filename) {
+  return `${API_BASE}/metrics/matrix/crop/${filename}`;
+}
