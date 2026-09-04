@@ -195,14 +195,9 @@ export default function App() {
 
       <div className="app">
         <p className="app-intro muted small">
-          Every product's real footprint is plotted at its actual lat/lon on the globe above.
-          Wherever the actual Chandrayaan-2 image is available (OHRC/TMC-2/IIRS raster staged --
-          "Raster: available" in the catalog below), that real photo is draped onto the patch,
-          tinted by its own real solar-incidence angle (lighter = sun closer to overhead, darker =
-          grazing light) -- the same number behind the metrics dashboard's "incidence gap" column.
-          Drag to rotate, scroll to zoom, click a patch to select that product below; use the
-          toggles in the globe's corner to hide the footprint overlay entirely, or instrument by
-          instrument.
+          Each footprint sits at its real lat/lon and, where staged, shows the actual photo tinted
+          by solar-incidence angle. Drag to rotate, scroll to zoom, click a patch to select it
+          below.
         </p>
 
         <main className="app-grid">

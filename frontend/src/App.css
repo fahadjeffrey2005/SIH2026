@@ -595,13 +595,15 @@
 }
 
 .overlay-scroll {
-  /* Was a vertical scroll box (capped height, full-width image) -- flipped
-     to horizontal: the image keeps its natural aspect ratio at a fixed
-     viewport-relative height, and the box scrolls sideways instead of
-     down, per explicit request. */
+  /* Fixed box, image shown at its real pixel size (no forced width/height)
+     -- forcing one dimension fought the image's real aspect ratio: some
+     pairs render a wide composite (wants horizontal scroll), others a
+     tall, narrow one (forcing a fixed height shrank those to an
+     unreadable sliver). Letting the browser scroll whichever way the
+     image actually overflows fixes both. */
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
+  height: 420px;
+  overflow: auto;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 4px;
   margin-top: 0.5rem;
@@ -610,8 +612,6 @@
 
 .overlay-img {
   display: block;
-  height: min(50vh, 480px);
-  width: auto;
   max-width: none;
 }
 

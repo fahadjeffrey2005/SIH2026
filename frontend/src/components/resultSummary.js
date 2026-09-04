@@ -18,18 +18,18 @@ export function summarizeResult(result) {
       const km = geoloc_error_median_m / 1000;
       geoSentence =
         km < 10
-          ? ` Their real ground positions also line up to within about ${km.toFixed(1)} km of each other -- an independent check that this is genuinely the same spot on the Moon, not a coincidence.`
-          : ` Their real ground positions land roughly ${Math.round(km).toLocaleString()} km apart on that same independent check -- wider than ideal, but a known limitation of how these two products are geolocated (see the technical note below), not necessarily a sign the match itself is wrong.`;
+          ? ` Ground positions agree to within ~${km.toFixed(1)} km -- not a coincidence.`
+          : ` Ground positions land ~${Math.round(km).toLocaleString()} km apart -- a known limitation, not a bad match.`;
     }
     return {
       tone: "good",
       headline: `Match found -- ${inliers} point${inliers === 1 ? " lines" : "s line"} up between the two images.`,
-      body: `Out of ${raw_matches} candidate matches the algorithm proposed, ${inliers} survived a geometric consistency check -- about ${pct}% held up.${geoSentence}`,
+      body: `Out of ${raw_matches} candidate matches, ${inliers} survived (${pct}%).${geoSentence}`,
     };
   }
   return {
     tone: "bad",
     headline: "No reliable match found.",
-    body: "These two images were too different -- in lighting, sensor, or scale -- for this method to confidently link any points between them. That's a genuine, useful result, not an error: it shows exactly where this approach's limits are.",
+    body: "Too different in lighting, sensor, or scale to link any points -- a real result, not an error.",
   };
 }
