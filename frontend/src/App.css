@@ -12,8 +12,11 @@
 }
 
 .app-grid {
+  /* Catalog browser + pair picker only now -- ResultsView moved to its own
+     full-width section below (see App.jsx) so its overlay image and
+     metrics aren't squeezed into a narrow third column. */
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1.2fr;
+  grid-template-columns: 1.3fr 1fr;
   gap: 1rem;
   align-items: start;
   margin-top: 1.5rem;
@@ -175,31 +178,78 @@
 .status-failed { color: #b00020; }
 .status-running, .status-queued { color: #a06800; }
 
+/* Plain-language summary (ResultsView.jsx's summarizeResult) -- shown
+   before the technical metrics, sized and colored to read at a glance for
+   someone who doesn't know what an inlier ratio is. */
+.result-summary {
+  border-left: 4px solid #888;
+  background: #f7f7fb;
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.result-summary-good {
+  border-left-color: #0a7d2c;
+  background: #eefaf0;
+}
+
+.result-summary-bad {
+  border-left-color: #a06800;
+  background: #fdf6e8;
+}
+
+.result-summary-headline {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.result-summary-body {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.results-subhead {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #888;
+  margin: 1rem 0 0.5rem;
+}
+
 .metrics {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.4rem 1rem;
-  font-size: 0.85rem;
-  margin: 0.75rem 0;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.6rem 1.5rem;
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0.75rem;
 }
 
 .metrics div {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 0.15rem;
   border-bottom: 1px dotted #eee;
+  padding-bottom: 0.3rem;
 }
 
 .metrics dt {
   color: #666;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .metrics dd {
   margin: 0;
   font-weight: 600;
+  font-size: 1.05rem;
 }
 
 .overlay-scroll {
-  max-height: 70vh;
+  max-height: 80vh;
   overflow: auto;
   border: 1px solid #ddd;
   border-radius: 4px;

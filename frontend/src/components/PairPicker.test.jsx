@@ -51,6 +51,13 @@ describe("PairPicker", () => {
     expect(onMethodChange).toHaveBeenCalledWith("disk_lightglue");
   });
 
+  it("offers HOPC as a fourth method alongside SIFT/AKAZE/DISK+LightGlue", () => {
+    const onMethodChange = vi.fn();
+    render(<PairPicker {...baseProps} onMethodChange={onMethodChange} />);
+    fireEvent.click(screen.getByLabelText(/^hopc$/i));
+    expect(onMethodChange).toHaveBeenCalledWith("hopc");
+  });
+
   it("submits the anchor, the chosen suggestion, and the current method when Match is clicked", () => {
     const onRunMatch = vi.fn();
     render(<PairPicker {...baseProps} method="akaze" onRunMatch={onRunMatch} />);

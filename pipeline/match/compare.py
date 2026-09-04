@@ -47,7 +47,7 @@ def run_pair(id_a: str, id_b: str, out_dir: Optional[Path] = None) -> dict:
     crop_b, origin_b = prep_crop(b, a, target_gsd)
 
     results = {}
-    for method in ("sift", "akaze"):
+    for method in ("sift", "akaze", "hopc"):
         results[method] = classical_matcher.match(crop_a, crop_b, method=method)
     results["disk_lightglue"] = learned_matcher.match(crop_a, crop_b)
 

@@ -26,7 +26,7 @@ from .config import MATCH_OUTPUT_DIR
 
 _JOBS: dict[str, "Job"] = {}
 
-_CLASSICAL_METHODS = ("sift", "akaze")
+_CLASSICAL_METHODS = ("sift", "akaze", "hopc")
 _LEARNED_METHODS = ("disk_lightglue",)
 ALL_METHODS = _CLASSICAL_METHODS + _LEARNED_METHODS
 

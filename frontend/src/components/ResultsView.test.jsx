@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import ResultsView from "./ResultsView";
+import { summarizeResult } from "./resultSummary";
 
 const DONE_JOB = {
   product_a: "ch2_iir_nri_20211221t0324126144_d_img_hw1",
@@ -57,5 +58,48 @@ describe("ResultsView", () => {
     render(<ResultsView job={job} error={null} />);
     expect(screen.getByText(/zero inliers is itself a real, reportable result/i)).toBeInTheDocument();
     expect(screen.getByText(/n\/a \(no inliers\)/)).toBeInTheDocument();
+  });
+
+  it("shows a plain-language summary above the technical metrics for a successful match", () => {
+    render(<ResultsView job={DONE_JOB} error={null} />);
+    expect(screen.getByText(/match found -- 7 points line up between the two images/i)).toBeInTheDocument();
+    expect(screen.getByText(/out of 25 candidate matches/i)).toBeInTheDocument();
+  });
+
+  it("shows a plain-language summary for a zero-inlier result too, distinct from the technical note", () => {
+    const job = { ...DONE_JOB, result: { ...DONE_JOB.result, inliers: 0, inlier_ratio: 0, geoloc_error_median_m: null, geoloc_error_n: 0 } };
+    render(<ResultsView job={job} error={null} />);
+    expect(screen.getByText("No reliable match found.")).toBeInTheDocument();
+  });
+});
+
+describe("summarizeResult", () => {
+  it("calls out a tight geolocation agreement as an independent confirmation", () => {
+    const summary = summarizeResult({ inliers: 4, raw_matches: 10, inlier_ratio: 0.4, geoloc_error_median_m: 4600 });
+    expect(summary.tone).toBe("good");
+    expect(summary.body).toMatch(/4\.6 km/);
+    expect(summary.body).toMatch(/not a coincidence/);
+  });
+
+  it("frames a wide geolocation gap as a known modeling limit, not a bad match", () => {
+    const summary = summarizeResult({ inliers: 7, raw_matches: 25, inlier_ratio: 0.28, geoloc_error_median_m: 186679.5 });
+    expect(summary.body).toMatch(/187 km apart/);
+    expect(summary.body).toMatch(/known limitation/);
+  });
+
+  it("omits any geolocation sentence when there's no geolocation figure", () => {
+    const summary = summarizeResult({ inliers: 1, raw_matches: 3, inlier_ratio: 0.33, geoloc_error_median_m: null });
+    expect(summary.body).not.toMatch(/ground positions/);
+  });
+
+  it("uses singular wording for exactly one surviving point", () => {
+    const summary = summarizeResult({ inliers: 1, raw_matches: 3, inlier_ratio: 0.33, geoloc_error_median_m: null });
+    expect(summary.headline).toBe("Match found -- 1 point lines up between the two images.");
+  });
+
+  it("marks a zero-inlier result as bad tone with no false reassurance", () => {
+    const summary = summarizeResult({ inliers: 0, raw_matches: 12, inlier_ratio: 0, geoloc_error_median_m: null });
+    expect(summary.tone).toBe("bad");
+    expect(summary.headline).toBe("No reliable match found.");
   });
 });

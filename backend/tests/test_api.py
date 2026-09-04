@@ -124,6 +124,35 @@ def test_match_happy_path_sift():
     assert overlay.headers["content-type"] == "image/png"
 
 
+def test_match_happy_path_hopc():
+    """Same shape as test_match_happy_path_sift, against the real
+    IIRS_2021/TMC2_2024_NCF pair (26.9deg incidence gap) rather than
+    OHRC_2021/TMC2_2025_NCF -- this is the pair HOPC's own tuned ratio
+    threshold (match.classical.matcher.match's method-specific default, see
+    that module) was verified to find a real, geolocation-consistent match
+    on (see docs/baseline_results.md's "HOPC" section); the harder
+    OHRC/TMC-2 pair is one of the two where HOPC's nominal RANSAC result
+    was found NOT to hold up to scrutiny, so it isn't the right pair to
+    lock in as a "this works" regression test."""
+    resp = client.post("/match", json={
+        "product_a": IIRS_2021,
+        "product_b": TMC2_2024_NCF,
+        "method": "hopc",
+    })
+    assert resp.status_code == 200
+    job = resp.json()
+
+    settled = _poll_job(job["job_id"])
+    assert settled["status"] == "done", settled.get("error")
+    result = settled["result"]
+    assert result["keypoints_a"] > 0
+    assert result["keypoints_b"] > 0
+    assert result["inliers"] >= 5  # real run finds 14; a wide floor keeps this from being flaky
+
+    overlay = client.get(result["overlay_url"])
+    assert overlay.status_code == 200
+
+
 def test_match_failure_path_settles_to_failed_not_hung():
     """Regression test: submitting a product with no raster staged used to
     raise SystemExit deep in demo.load(), which escaped run_match_job's
@@ -211,7 +240,7 @@ def test_product_browse_serves_a_real_image_for_a_has_raster_product():
     assert len(resp.content) > 0
 
 
-def test_product_browse_caps_the_long_side_at_4096_for_a_larger_source_image():
+def test_product_browse_caps_the_long_side_at_8192_for_a_larger_source_image():
     """OHRC_2021's real browse PNG is ~1200x9369 -- long past the resize
     cap. The 3D Moon lets a user zoom in close enough to fill the screen
     with one patch (MoonGlobe.jsx's MIN_CAMERA_DISTANCE), so this cap is a
@@ -220,7 +249,7 @@ def test_product_browse_caps_the_long_side_at_4096_for_a_larger_source_image():
     original."""
     resp = client.get(f"/products/{OHRC_2021}/browse")
     image = Image.open(io.BytesIO(resp.content))
-    assert max(image.size) <= 4096
+    assert max(image.size) <= 8192
 
 
 def test_product_browse_serves_an_already_small_image_at_full_resolution():

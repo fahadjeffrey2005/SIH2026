@@ -18,6 +18,7 @@ import CorrespondenceViewer from "./CorrespondenceViewer";
 const METHOD_LABELS = {
   sift: "SIFT",
   akaze: "AKAZE",
+  hopc: "HOPC",
   disk_lightglue: "DISK+LightGlue",
 };
 

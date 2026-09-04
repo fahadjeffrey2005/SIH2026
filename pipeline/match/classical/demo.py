@@ -151,7 +151,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("id_a")
     ap.add_argument("id_b")
-    ap.add_argument("--method", choices=["sift", "akaze"], default="sift")
+    ap.add_argument("--method", choices=["sift", "akaze", "hopc"], default="sift")
     ap.add_argument("--out", default=None, help="path to save a match visualization PNG")
     args = ap.parse_args()
 

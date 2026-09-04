@@ -10,7 +10,9 @@ served by the backend at `GET /metrics/matrix`, rendered by the frontend's
 metrics dashboard (4th screen) -- this file is the human-readable writeup
 of the same data, not a separate hand-typed source of truth.
 
-- **Track A (classical)**: SIFT and AKAZE, ratio test + RANSAC homography.
+- **Track A (classical)**: SIFT, AKAZE, and HOPC (added 2026-09-04 -- see
+  "HOPC (phase-congruency descriptor)" below), all ratio test + RANSAC
+  homography.
 - **Track B (learned)**: DISK + LightGlue via `kornia`, used zero-shot
   (pretrained on terrestrial photo datasets, no lunar-imagery fine-tuning),
   RANSAC homography on top for a fair comparison to Track A. LoFTR (the
@@ -19,13 +21,13 @@ of the same data, not a separate hand-typed source of truth.
   which this environment's egress policy blocks. DISK's and LightGlue's
   weights are both GitHub release/raw assets, which are reachable.
 
-| Pair | Incidence gap | SIFT inliers (geoloc median) | AKAZE inliers (geoloc median) | DISK+LightGlue inliers (geoloc median) |
-|---|---|---|---|---|
-| TMC-2 2024-01-25 + TMC-2 2025-08-07 (same instrument) | 7.1° | 5 / 15 (33%) — 192.1 km | 4 / 9 (44%) — 64.9 km | 4 / 25 (16%) — 197.1 km |
-| IIRS + TMC-2 2024-01-25 | 26.9° | 7 / 25 (28%) — 186.7 km | 4 / 10 (40%) — 76.8 km | 4 / 11 (36%) — 230.1 km |
-| IIRS + TMC-2 2025-08-07 | 34.0° | 5 / 12 (42%) — 2.8 km | 3 / 14 (21%) — 14.3 km | 4 / 17 (24%) — 20.2 km |
-| OHRC + TMC-2 2025-08-07 | 34.7° | 0 / 0 — n/a | 0 / 0 — n/a | 0 / 1 — n/a |
-| IIRS + OHRC | 68.7° | 0 / 0 — n/a | 0 / 0 — n/a | 0 / 0 — n/a |
+| Pair | Incidence gap | SIFT inliers (geoloc median) | AKAZE inliers (geoloc median) | HOPC inliers (geoloc median) | DISK+LightGlue inliers (geoloc median) |
+|---|---|---|---|---|---|
+| TMC-2 2024-01-25 + TMC-2 2025-08-07 (same instrument) | 7.1° | 5 / 15 (33%) — 192.1 km | 4 / 9 (44%) — 64.9 km | 4 / 40 (10%) — 121.5 km | 4 / 25 (16%) — 197.1 km |
+| IIRS + TMC-2 2024-01-25 | 26.9° | 7 / 25 (28%) — 186.7 km | 4 / 10 (40%) — 76.8 km | **14** / 47 (30%) — 101.7 km | 4 / 11 (36%) — 230.1 km |
+| IIRS + TMC-2 2025-08-07 | 34.0° | 5 / 12 (42%) — 2.8 km | 3 / 14 (21%) — 14.3 km | 5 / 27 (19%) — 67.0 km | 4 / 17 (24%) — 20.2 km |
+| OHRC + TMC-2 2025-08-07 | 34.7° | 0 / 0 — n/a | 0 / 0 — n/a | 4 / 6 (67%) — 17.4 km (not credible, see below) | 0 / 1 — n/a |
+| IIRS + OHRC | 68.7° | 0 / 0 — n/a | 0 / 0 — n/a | 4 / 8 (50%) — 9.5 km (not credible, see below) | 0 / 0 — n/a |
 
 (DISK+LightGlue numbers above are post keypoint-budget fix, `max_keypoints`
 2048 → 4096 -- see "Track B keypoint-budget fix" below. The 26.9° and 34.0°
@@ -96,6 +98,18 @@ not "pipeline broken":
    date-gap proxy used before real corner coordinates were available.
    Worth remembering as a reason to verify geometry before trusting a
    date-based grouping again.
+
+4. **HOPC (phase-congruency descriptor, added 2026-09-04) matches classical
+   at-least-as-well on every pair the existing methods already succeed on
+   -- and does noticeably better on one of them -- but doesn't push past
+   the sun-angle cliff either, once its two nominal successes past 34° are
+   checked and thrown out.** See "HOPC (phase-congruency descriptor)"
+   below for the full read, including why those two results don't survive
+   scrutiny -- the honest summary is that illumination-invariant structure
+   alone wasn't the missing ingredient on this catalog; a from-scratch
+   descriptor still needs the scale/rotation normalization and RANSAC
+   sample sizes SIFT gets from decades of engineering, not just a
+   different underlying image measurement.
 
 ## Track B keypoint-budget fix
 
@@ -383,6 +397,81 @@ on a flat color fill, actively messy on top of a real photo. Raising the
 threshold to 89 degrees keeps genuine boundary edges (always included
 regardless of angle) while dropping the false internal ones.
 
+## HOPC (phase-congruency descriptor)
+
+Added 2026-09-04 as a third classical method, motivated directly by finding
+#1 above: SIFT/AKAZE both key off intensity *gradients*, and a big enough
+sun-angle change can flip the exact same crater rim from a bright ridge to
+a black shadow edge -- same physical feature, opposite gradient sign, which
+is the actual physical mechanism behind the sun-angle cliff. Phase
+congruency (Kovesi) instead measures where an image's local phase lines up
+across scales, which is a property of "there's a real structural edge
+here" independent of which way the light was coming from. HOPC (Ye, Shan
+et al.) builds a SIFT-shaped descriptor -- a spatial grid of orientation
+histograms, same idea as SIFT's own descriptor -- on top of per-orientation
+phase-congruency energy instead of raw gradients. Implementation:
+`pipeline/match/classical/hopc.py`; see its module docstring for the exact
+log-Gabor filter-bank construction and the two deliberate simplifications
+versus the literature (a single-scale noise estimate rather than Kovesi's
+full multi-scale model, and no per-keypoint scale/rotation normalization).
+
+**A real tuning bug found and fixed before any of the numbers above meant
+anything**: at Lowe's original SIFT ratio-test threshold (0.75), HOPC found
+a real, RANSAC-and-geolocation-confirmed match on *zero* of this catalog's
+5 confirmed-overlapping pairs -- including the 7.1° pair, the easiest one
+in the whole matrix, where every other method succeeds easily. Diagnosis
+(not guessed -- checked directly): HOPC's descriptor is less discriminative
+than SIFT's (a coarse 16-cell orientation-energy histogram vs. SIFT's much
+finer, scale-normalized gradient histogram), so its nearest/second-nearest
+descriptor-distance ratios cluster much closer to 1.0 even for genuinely
+correct matches on this real imagery -- confirmed by inspecting the actual
+ratio distribution on the 7.1° pair's real crops (median ratio 0.98; only 1
+of 3,808×3,868 candidate pairs passed 0.75). Raising the threshold to 0.85
+(`match.classical.matcher.match`'s per-method default -- see that
+function's docstring) recovered real matches on 3 of 5 pairs, with
+geolocation agreement in the same range SIFT/AKAZE get on the same pairs.
+This is the same kind of fix as Track B's keypoint-budget one above: a
+hyperparameter tuned specifically against this project's own real data
+rather than inherited from a different descriptor's convention.
+
+**The honest part: two of the five results don't hold up.** At 0.85, HOPC
+nominally reports 4 RANSAC inliers on *both* of the two hardest pairs
+(34.7° and 68.7°) -- the two pairs where SIFT, AKAZE, and DISK+LightGlue
+all still find nothing. That would be a genuinely exciting result (phase
+congruency succeeding exactly where gradient-based and learned methods
+fail) if it were real. It isn't, on inspection:
+
+- Both pairs have only 6-8 raw ratio-test candidates total -- barely above
+  the 4 points `cv2.findHomography`'s RANSAC needs at minimum to fit a
+  homography *at all*. 4 inliers out of 6-8 candidates is not the kind of
+  redundancy that makes a RANSAC result trustworthy; it's close enough to
+  "RANSAC found *some* 4-point subset that happens to fit a homography"
+  to not be distinguishable from that.
+- Drawing the actual correspondence lines (`match.classical.demo.draw_matches`,
+  the same visualization the interactive metrics-dashboard viewer uses)
+  shows them crossing each other in a way a genuine correspondence between
+  two similar, unmirrored overlapping views essentially never does. The
+  three credible results (7.1°, 26.9°, 34.0°, all with 27-47 raw
+  candidates) draw as the expected near-parallel lines running consistently
+  along the swath direction; the two hard-pair results don't.
+
+Reproduced exactly (`match.classical.demo.draw_matches` output, checked
+across 4 repeated runs -- fully deterministic, not a RANSAC-randomness
+fluke): both hard-pair results are real code output, just not real
+correspondences. Treated in the table above, and everywhere else in this
+project, as no finding at all on those two pairs -- consistent with, not
+contradicting, finding #1's sun-angle-cliff story.
+
+**Bottom line**: on this catalog, HOPC ties or mildly beats classical
+matching where classical matching already works (14 inliers vs. SIFT's 7
+on the 26.9° pair is a real, credible improvement), and does not extend
+correspondence-finding past the existing cliff. Illumination-invariant
+structure was a real, worthwhile thing to try, and it wasn't a wasted
+afternoon -- but on its own, without also matching SIFT's scale/rotation
+normalization and having enough candidate points for RANSAC to be
+statistically meaningful, it isn't the single missing ingredient this
+catalog's hardest pairs needed.
+
 ## Known caveats in this matrix
 
 - The main matrix's OHRC/TMC-2 imagery is still the 1/10-downsampled browse
@@ -407,6 +496,12 @@ regardless of angle) while dropping the false internal ones.
 - No fine-tuning or domain adaptation attempted for Track B yet -- that's
   the natural next step suggested by finding #2 above, not just running the
   pretrained model harder.
+- HOPC (see its own section above) has no per-keypoint scale or rotation
+  normalization -- fine for this project's already-geolocated, unrotated
+  working crops, but it means the descriptor isn't a drop-in SIFT
+  replacement outside that specific setup. Its 0.85 ratio-test threshold
+  was tuned against this catalog's 5 real pairs, not swept independently
+  per pair like DISK's keypoint budget was.
 - The new geolocation-agreement metric's absolute values are dominated by
   `BilinearGeoTransform`'s single-quad modeling limit for TMC-2/IIRS's very
   long swaths, not by matching error -- see "Geolocation agreement" above

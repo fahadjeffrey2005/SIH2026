@@ -29,14 +29,22 @@ _GLOBE_TEXTURE_DIR = DATA_ROOT / "processed" / "moon_globe_textures"
 _GLOBE_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
 # The 3D Moon now lets the camera zoom in close enough to fill the screen
 # with a single patch (see MoonGlobe.jsx's MIN_CAMERA_DISTANCE/FOCUS_DISTANCE),
-# so the old 1024px cap was leaving real detail on the table -- these source
-# PNGs run up to ~7MB / 9000-29000px on the long side (IIRS's is already
-# under this cap and gets served at its full original resolution, untouched).
-# 4096 is a conservative ceiling for GPU texture-size support (WebGL2
-# requires >=2048; effectively every real device from the last decade
-# supports at least 4096) while still being a ~4x jump in delivered detail
-# over the old cap for the products that do need downsampling.
-_GLOBE_TEXTURE_MAX_SIDE = 4096
+# so a low cap here directly shows up as lost detail once zoomed in -- these
+# source PNGs run up to ~7MB / 9000-29000px on the long side (IIRS's is
+# already under this cap and gets served at its full original resolution,
+# untouched). 8192 is close to the practical ceiling for real-world GPU
+# texture-size support: WebGL2 only *requires* 2048, but every real desktop
+# and laptop GPU from the last decade (and effectively all current mobile
+# GPUs) supports at least 8192, whereas 16384 -- which would nearly cover
+# OHRC's ~9369px full native length -- is common on discrete desktop GPUs
+# but not guaranteed on integrated/mobile ones, and a texture the GPU
+# silently refuses to allocate is worse than one that's merely downsized.
+# TMC-2's two products are long pushbroom strips (20650px and 29523px) --
+# even at this cap they're downsized ~2.5-3.6x, so some real detail loss on
+# those two specifically is an honest, inherent limit of a single WebGL
+# texture covering a whole 35-48deg-long swath, not something this cap
+# alone can fully solve.
+_GLOBE_TEXTURE_MAX_SIDE = 8192
 
 
 def _globe_texture_path(product_id: str) -> Path:
@@ -56,7 +64,11 @@ def _globe_texture_path(product_id: str) -> Path:
     scale = _GLOBE_TEXTURE_MAX_SIDE / max(h, w)
     if scale < 1:
         image = cv2.resize(image, (max(1, round(w * scale)), max(1, round(h * scale))), interpolation=cv2.INTER_AREA)
-    cv2.imwrite(str(cached), image, [cv2.IMWRITE_JPEG_QUALITY, 92])
+    # 95 rather than 92 -- these get zoomed in close enough that JPEG
+    # blocking artifacts on a real grayscale image are easy to mistake for
+    # actual surface detail (or lack of it); the extra few % filesize isn't
+    # worth trading for that at this resolution.
+    cv2.imwrite(str(cached), image, [cv2.IMWRITE_JPEG_QUALITY, 95])
     return cached
 
 

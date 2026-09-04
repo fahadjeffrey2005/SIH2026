@@ -16,6 +16,12 @@
 // entirely or by instrument, independent of the real base-map sphere --
 // see the effect below that builds/tears down patch meshes.
 //
+// has_raster patches carry their own real, single-band Chandrayaan-2 image
+// (buildPatchMesh) and normally show it tinted by solar-incidence angle for
+// the zoomed-out overview; selecting/focusing one (the highlight effect
+// below) drops the tint to true white so the actual grayscale pixels read
+// correctly once you've zoomed in close enough to judge them.
+//
 // Honesty note (see the in-panel caption too): the sphere's own shading
 // comes from one fixed decorative light, not each product's actual
 // sun-elevation/azimuth -- reconstructing a true per-product illumination
@@ -61,7 +67,7 @@ const FOCUS_DISTANCE = 1.12;
 const FLIGHT_DURATION_MS = 650;
 const easeInOutQuad = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
-function buildPatchMesh(product) {
+function buildPatchMesh(product, maxAnisotropy) {
   // Real footprints are tiny next to the whole Moon (some under 1 degree
   // across) -- exaggerate for visibility, same idea as an orrery drawing
   // planets oversized. See moonGlobeMath.js's exaggerateCorners docstring.
@@ -81,19 +87,35 @@ function buildPatchMesh(product) {
     geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
     texture = new THREE.TextureLoader().load(productBrowseUrl(product.product_id));
     texture.colorSpace = THREE.SRGBColorSpace;
+    // These patches are long, thin, near-grazing-angle swaths (a TMC-2
+    // strip can be 35-48deg long but under 1deg wide) -- viewed obliquely
+    // on the curved globe, plain bilinear filtering blurs them far more
+    // than a straight-on texture would, on top of whatever detail the
+    // backend's own long-side resize already gave up (see
+    // backend/app/routers/products.py's _GLOBE_TEXTURE_MAX_SIDE comment).
+    // Anisotropic filtering samples along the view-angle-stretched axis
+    // instead of averaging it away, which is exactly this case.
+    if (maxAnisotropy) texture.anisotropy = maxAnisotropy;
   } else {
     const verts = footprintPatchVertices(exaggerated, PATCH_RADIUS);
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
   }
   geometry.computeVertexNormals();
 
-  // With a real photo draped on top, the incidence-angle color still comes
-  // through as a tint (MeshBasicMaterial multiplies `map` by `color`) --
-  // the real image's own brightness/detail plus the same blue-scale
-  // encoding used everywhere else in the app, rather than choosing between
-  // "real photo" and "colored by incidence."
+  // Every one of these source images is a single-band panchromatic (or
+  // grayscale IIRS browse) frame, not a color photo -- so multiplying it by
+  // the incidence-angle tint (MeshBasicMaterial multiplies `map` by `color`)
+  // doesn't read as "a real photo with a colored cast," it reads as "a
+  // washed-out gradient," especially once you're zoomed in close enough to
+  // actually judge real detail. Keep the tint for the at-a-glance,
+  // zoomed-out overview (it's genuinely useful there -- see the legend), but
+  // the highlight effect below switches it to white (no tint) the moment a
+  // has_raster patch is selected/focused, so inspecting real pixels shows
+  // the real grayscale image, not a colorized one. tintColor is stashed on
+  // the mesh so that effect can restore it on deselect.
+  const tintColor = incidenceColor(product.solar_incidence_deg);
   const material = new THREE.MeshBasicMaterial({
-    color: incidenceColor(product.solar_incidence_deg),
+    color: tintColor,
     map: texture,
     side: THREE.DoubleSide,
     transparent: true,
@@ -103,6 +125,8 @@ function buildPatchMesh(product) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 1;
   mesh.userData.productId = product.product_id;
+  mesh.userData.tintColor = tintColor;
+  mesh.userData.hasTexture = !!texture;
 
   // A subdivided (curved) patch has internal grid-cell edges that aren't
   // perfectly coplanar with their neighbors -- EdgesGeometry's default 1deg
@@ -310,7 +334,7 @@ export default function MoonGlobe({ products, selectedId, onSelect, pairIds, sho
         if (visibleInstruments && !visibleInstruments.has(product.instrument)) continue;
         wanted.add(product.product_id);
         if (!s.meshes.has(product.product_id)) {
-          const mesh = buildPatchMesh(product);
+          const mesh = buildPatchMesh(product, s.renderer.capabilities.getMaxAnisotropy());
           s.scene.add(mesh);
           s.meshes.set(product.product_id, mesh);
         }
@@ -338,11 +362,17 @@ export default function MoonGlobe({ products, selectedId, onSelect, pairIds, sho
       const outline = mesh.userData.outline;
       if (inPair || isSelected) {
         mesh.material.opacity = 1;
+        // Drop the incidence-color tint the moment a has_raster patch is
+        // focused -- see buildPatchMesh's comment: this is the "zoomed in
+        // to actually look at the pixels" moment, and the real (grayscale)
+        // image should show true, not multiplied by a blue wash.
+        if (mesh.userData.hasTexture) mesh.material.color.set(0xffffff);
         outline.material.color.set(inPair ? 0xff7a18 : 0xffffff);
         outline.material.opacity = 1;
         outline.material.linewidth = 2;
       } else {
         mesh.material.opacity = 0.82;
+        if (mesh.userData.hasTexture) mesh.material.color.set(mesh.userData.tintColor);
         outline.material.opacity = 0;
       }
     }

@@ -140,8 +140,16 @@ export default function App() {
           onRunMatch={handleRunMatch}
           running={running}
         />
-        <ResultsView job={job} error={jobError} />
       </main>
+
+      {/* Full width rather than squeezed into the 3-up grid above: the
+          overlay image and the metrics were unreadably small crammed into a
+          ~1/3-width column, and there was nowhere to put a plain-language
+          summary that wasn't even tighter. Matches the same full-width
+          treatment already used for the metrics dashboard and 3D Moon below. */}
+      <div className="app-grid-wide">
+        <ResultsView job={job} error={jobError} />
+      </div>
 
       <div className="app-grid-wide">
         <MetricsDashboard matrix={matrix} loading={matrixLoading} error={matrixError} />

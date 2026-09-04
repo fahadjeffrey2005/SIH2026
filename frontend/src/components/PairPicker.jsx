@@ -42,6 +42,10 @@ export default function PairPicker({ selectedId, anchorHasRaster, suggestions, l
               <input type="radio" name="method" value="akaze" checked={method === "akaze"} onChange={() => onMethodChange("akaze")} />
               AKAZE
             </label>
+            <label title="Illumination-invariant descriptor -- matches on real edge/ridge structure regardless of sun angle, instead of raw brightness gradients">
+              <input type="radio" name="method" value="hopc" checked={method === "hopc"} onChange={() => onMethodChange("hopc")} />
+              HOPC
+            </label>
             <label>
               <input type="radio" name="method" value="disk_lightglue" checked={method === "disk_lightglue"} onChange={() => onMethodChange("disk_lightglue")} />
               DISK+LightGlue (learned)

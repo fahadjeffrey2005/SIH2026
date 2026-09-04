@@ -8,6 +8,17 @@
 // staged into the pipeline -- see README.md). Swapping this <img> for an
 // OpenSeadragon viewer once tiling exists is a self-contained follow-up;
 // nothing about the job/result data shape needs to change for it.
+//
+// Rendered full-width (see App.jsx) rather than squeezed into the 3-up
+// grid it used to share with the catalog browser and pair picker -- that
+// left the overlay image and the metrics list too small to actually read.
+//
+// The plain-language summary shown above the technical metrics (for a
+// viewer who doesn't know what an inlier ratio or RANSAC is) is built by
+// resultSummary.js's summarizeResult -- split out the same way
+// moonGlobeMath.js is split from MoonGlobe.jsx, so the wording logic is
+// unit-testable on its own.
+import { summarizeResult } from "./resultSummary";
 
 export default function ResultsView({ job, error }) {
   if (error) {
@@ -36,10 +47,24 @@ export default function ResultsView({ job, error }) {
         status: <span className={`status status-${job.status}`}>{job.status}</span>
       </p>
 
+      {(job.status === "running" || job.status === "queued") && (
+        <p className="muted">Comparing the two images now -- this usually takes a few seconds.</p>
+      )}
+
       {job.status === "failed" && <p className="error">{job.error}</p>}
 
       {job.status === "done" && job.result && (
         <>
+          {(() => {
+            const summary = summarizeResult(job.result);
+            return (
+              <div className={`result-summary result-summary-${summary.tone}`}>
+                <p className="result-summary-headline">{summary.headline}</p>
+                <p className="result-summary-body">{summary.body}</p>
+              </div>
+            );
+          })()}
+          <h3 className="results-subhead">Technical detail</h3>
           <dl className="metrics">
             <div><dt>Keypoints</dt><dd>{job.result.keypoints_a} / {job.result.keypoints_b}</dd></div>
             <div><dt>Candidate matches</dt><dd>{job.result.raw_matches}</dd></div>
@@ -73,6 +98,10 @@ export default function ResultsView({ job, error }) {
               actual hard case this project is about.
             </p>
           )}
+          <p className="muted small">
+            Below: the two real images side by side, with a line drawn between every matched point
+            that survived the consistency check above -- scroll/zoom in the box to inspect them.
+          </p>
           <div className="overlay-scroll">
             <img className="overlay-img" src={job.overlayUrl} alt="match overlay" />
           </div>
