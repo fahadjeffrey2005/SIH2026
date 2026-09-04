@@ -62,7 +62,12 @@ const INSTRUMENT_LABEL = { OHRC: "OHRC", "TMC-2": "TMC-2", IIRS: "IIRS" };
 // patch gives an immediately-readable close-up with the rest of the globe
 // still for context, and scrolling in further reaches true max zoom.
 const MIN_CAMERA_DISTANCE = 1.03;
-const MAX_CAMERA_DISTANCE = 5;
+// Raised from 5 so there's still real zoom-out headroom above the new,
+// further-back INITIAL_CAMERA_POSITION below (per explicit request: the
+// whole Moon comfortably framed with room around it on first load, not
+// filling/overflowing the viewport).
+const MAX_CAMERA_DISTANCE = 6;
+const INITIAL_CAMERA_POSITION = new THREE.Vector3(0, 1, 4.4);
 const FOCUS_DISTANCE = 1.12;
 const FLIGHT_DURATION_MS = 650;
 const easeInOutQuad = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
@@ -178,7 +183,7 @@ export default function MoonGlobe({ products, selectedId, onSelect, pairIds, sho
     // plane simply isn't rendered, which at that distance is the very
     // thing the user zoomed in to see.
     const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
-    camera.position.set(0, 0.6, 2.6);
+    camera.position.copy(INITIAL_CAMERA_POSITION);
 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);

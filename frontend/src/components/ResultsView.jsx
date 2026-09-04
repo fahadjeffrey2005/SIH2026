@@ -54,58 +54,72 @@ export default function ResultsView({ job, error }) {
       {job.status === "failed" && <p className="error">{job.error}</p>}
 
       {job.status === "done" && job.result && (
-        <>
-          {(() => {
-            const summary = summarizeResult(job.result);
-            return (
-              <div className={`result-summary result-summary-${summary.tone}`}>
-                <p className="result-summary-headline">{summary.headline}</p>
-                <p className="result-summary-body">{summary.body}</p>
-              </div>
-            );
-          })()}
-          <h3 className="results-subhead">Technical detail</h3>
-          <dl className="metrics">
-            <div><dt>Keypoints</dt><dd>{job.result.keypoints_a} / {job.result.keypoints_b}</dd></div>
-            <div><dt>Candidate matches</dt><dd>{job.result.raw_matches}</dd></div>
-            <div><dt>RANSAC inliers</dt><dd>{job.result.inliers}</dd></div>
-            <div><dt>Inlier ratio</dt><dd>{(job.result.inlier_ratio * 100).toFixed(0)}%</dd></div>
-            <div><dt>Working resolution</dt><dd>{job.result.working_gsd_m} m/px</dd></div>
-            <div>
-              <dt>Geolocation agreement</dt>
-              <dd>
-                {job.result.geoloc_error_median_m != null
-                  ? `${Math.round(job.result.geoloc_error_median_m).toLocaleString()} m median (n=${job.result.geoloc_error_n})`
-                  : "n/a (no inliers)"}
-              </dd>
-            </div>
-          </dl>
-          {job.result.geoloc_error_median_m != null && (
-            <p className="muted small">
-              Independent accuracy check: how far apart each matched pixel pair's own PDS4 corner
-              geolocation places them on the lunar surface -- not derived from RANSAC, which only
-              checks internal (homography) self-consistency. See docs/baseline_results.md's
-              "geolocation agreement" section: this is a pseudo-ground-truth check (single bilinear
-              quad per product), most trustworthy for smaller footprints -- large pushbroom swaths
-              (TMC-2, IIRS) can show tens-to-hundreds of km of model error unrelated to matching
-              quality.
-            </p>
-          )}
-          {job.result.inliers === 0 && (
-            <p className="muted small">
-              Zero inliers is itself a real, reportable result here -- see docs/baseline_results.md.
-              Both tracks (classical and learned) fail on the high-sun-angle-gap pair; that's the
-              actual hard case this project is about.
-            </p>
-          )}
-          <p className="muted small">
-            Below: the two real images side by side, with a line drawn between every matched point
-            that survived the consistency check above -- scroll/zoom in the box to inspect them.
-          </p>
-          <div className="overlay-scroll">
-            <img className="overlay-img" src={job.overlayUrl} alt="match overlay" />
+        // Laid out as a horizontally-scrolling row of cards (summary,
+        // technical detail, match image) rather than one long vertically
+        // stacked block -- each card is independently readable, and the
+        // row only needs to scroll sideways once it doesn't fit, per
+        // explicit request.
+        <div className="results-row">
+          <div className="result-card">
+            {(() => {
+              const summary = summarizeResult(job.result);
+              return (
+                <div className={`result-summary result-summary-${summary.tone}`}>
+                  <p className="result-summary-headline">{summary.headline}</p>
+                  <p className="result-summary-body">{summary.body}</p>
+                </div>
+              );
+            })()}
           </div>
-        </>
+
+          <div className="result-card">
+            <h3 className="results-subhead">Technical detail</h3>
+            <dl className="metrics metrics-stacked">
+              <div><dt>Keypoints</dt><dd>{job.result.keypoints_a} / {job.result.keypoints_b}</dd></div>
+              <div><dt>Candidate matches</dt><dd>{job.result.raw_matches}</dd></div>
+              <div><dt>RANSAC inliers</dt><dd>{job.result.inliers}</dd></div>
+              <div><dt>Inlier ratio</dt><dd>{(job.result.inlier_ratio * 100).toFixed(0)}%</dd></div>
+              <div><dt>Working resolution</dt><dd>{job.result.working_gsd_m} m/px</dd></div>
+              <div>
+                <dt>Geolocation agreement</dt>
+                <dd>
+                  {job.result.geoloc_error_median_m != null
+                    ? `${Math.round(job.result.geoloc_error_median_m).toLocaleString()} m median (n=${job.result.geoloc_error_n})`
+                    : "n/a (no inliers)"}
+                </dd>
+              </div>
+            </dl>
+            {job.result.geoloc_error_median_m != null && (
+              <p className="muted small">
+                Independent accuracy check: how far apart each matched pixel pair's own PDS4 corner
+                geolocation places them on the lunar surface -- not derived from RANSAC, which only
+                checks internal (homography) self-consistency. See docs/baseline_results.md's
+                "geolocation agreement" section: this is a pseudo-ground-truth check (single
+                bilinear quad per product), most trustworthy for smaller footprints -- large
+                pushbroom swaths (TMC-2, IIRS) can show tens-to-hundreds of km of model error
+                unrelated to matching quality.
+              </p>
+            )}
+            {job.result.inliers === 0 && (
+              <p className="muted small">
+                Zero inliers is itself a real, reportable result here -- see
+                docs/baseline_results.md. Both tracks (classical and learned) fail on the
+                high-sun-angle-gap pair; that's the actual hard case this project is about.
+              </p>
+            )}
+          </div>
+
+          <div className="result-card result-card-image">
+            <h3 className="results-subhead">Match image</h3>
+            <p className="muted small">
+              The two real images side by side, with a line drawn between every matched point that
+              survived the consistency check -- scroll sideways in the box to see the rest of it.
+            </p>
+            <div className="overlay-scroll">
+              <img className="overlay-img" src={job.overlayUrl} alt="match overlay" />
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

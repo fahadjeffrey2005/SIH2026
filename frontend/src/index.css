@@ -1,15 +1,12 @@
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
-  /* Matches the hero's black-to-white fade (App.css's .hero-3d-fade) and
-     gives the glass panels below something soft to sit on top of --
-     genuinely flat white makes a frosted-glass card invisible. */
-  background:
-    radial-gradient(720px 480px at 12% 18%, rgba(200, 214, 255, 0.35), transparent 60%),
-    radial-gradient(640px 460px at 88% 8%, rgba(255, 214, 235, 0.28), transparent 60%),
-    #f7f7fb;
-  background-attachment: fixed;
+  /* Full dark mode: black all the way down the page, not just the hero --
+     glass panels below stay visually distinct via their own translucent
+     fill + border + shadow (see .panel/.glass-panel in App.css), the same
+     family of look the hero's toggle panel already used. */
+  background: #000000;
 }

@@ -3,7 +3,7 @@
   margin: 0 auto;
   padding: 1.5rem 1.5rem 3rem;
   font-family: system-ui, -apple-system, sans-serif;
-  color: #1a1a2e;
+  color: #e8e8ef;
 }
 
 .app-intro {
@@ -17,8 +17,9 @@
    (a sibling of .app, not inside it, so the container's max-width/padding
    don't clip it). Black background throughout, team name + one-liner
    overlaid on top, overlay toggles floating as a glass panel in the
-   bottom-right corner -- then a short fade hands off into the white,
-   glassmorphic content below.
+   bottom-right corner -- then straight into the rest of the page, which
+   stays the same black, dark-glass look all the way down (no light
+   section, per explicit request).
    --------------------------------------------------------------------- */
 .hero-3d {
   position: relative;
@@ -43,15 +44,17 @@
 }
 
 .hero-3d-overlay {
+  /* Anchored near the top, not centered over the globe -- the sphere itself
+     needs to read clearly for anyone evaluating the demo. */
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.6rem;
   text-align: center;
-  padding: 0 1.5rem;
+  padding: 7vh 1.5rem 0;
   pointer-events: none;
 }
 
@@ -79,10 +82,91 @@
   line-height: 1.5;
 }
 
+/* A functional scroll affordance, not just decoration: OrbitControls owns
+   the wheel event over the full-viewport globe (that's how scroll-to-zoom
+   works), so a mouse wheel here zooms the Moon instead of scrolling the
+   page. This button is an explicit, always-visible alternate path past the
+   hero, positioned along the side like a scrollbar rather than buried in
+   the center. */
+.hero-3d-scrollcue {
+  position: absolute;
+  left: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  margin: -0.5rem;
+  cursor: pointer;
+  pointer-events: auto;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.hero-3d-scrollcue:hover {
+  color: #fff;
+}
+
+.hero-3d-scrollcue-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.hero-3d-scrollcue-track {
+  position: relative;
+  width: 2px;
+  height: 76px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.hero-3d-scrollcue-thumb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 24px;
+  background: currentColor;
+  border-radius: 2px;
+  animation: hero-scrollcue-move 1.9s ease-in-out infinite;
+}
+
+@keyframes hero-scrollcue-move {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateY(52px);
+    opacity: 0.35;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-3d-scrollcue {
+    left: 0.75rem;
+  }
+
+  .hero-3d-scrollcue-track {
+    height: 56px;
+  }
+}
+
 .hero-3d-toggles {
   position: absolute;
   right: 1.25rem;
-  bottom: 1.25rem;
+  /* Lifted off the very bottom edge -- with the Moon now framed smaller
+     and centered (see MoonGlobe.jsx's INITIAL_CAMERA_POSITION), pinning
+     this to the corner of the whole viewport read as disconnected from the
+     globe; this keeps it nearer the globe's own footprint. */
+  bottom: 10vh;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
@@ -108,10 +192,31 @@
   gap: 0.4rem;
 }
 
-.hero-3d-fade {
-  height: 96px;
-  margin-top: -1px;
-  background: linear-gradient(to bottom, #000 0%, #f7f7fb 100%);
+/* The globe itself fades toward black near the bottom edge of the
+   viewport (this pseudo-element), matching the black page underneath so
+   there's no seam between "real pixels" and the rest of the page. */
+.hero-3d::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 32%;
+  background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.55) 55%, #000 100%);
+  pointer-events: none;
+  /* Sits above the globe but below the title/toggles/scroll-cue -- without
+     this it paints last (and so on top) and washes out the toggle panel,
+     which lives in exactly the bottom strip this vignette darkens. */
+  z-index: 1;
+}
+
+.hero-3d-overlay {
+  z-index: 2;
+}
+
+.hero-3d-scrollcue,
+.hero-3d-toggles {
+  z-index: 3;
 }
 
 @media (max-width: 640px) {
@@ -124,9 +229,11 @@
 }
 
 /* ---------------------------------------------------------------------
-   Glassmorphism utilities -- a translucent, blurred "frosted glass" card,
-   used for the hero's floating toggle panel (over the black globe) and
-   reused below (over the light page background) via .panel.
+   Glassmorphism utilities -- a translucent, blurred "frosted glass" card
+   on a dark ground. Used for the hero's floating toggle panel and reused
+   for every panel/card/table below (the whole page is dark now, so this
+   one look carries all the way down instead of switching to a light
+   variant partway).
    --------------------------------------------------------------------- */
 .glass-panel {
   background: rgba(255, 255, 255, 0.08);
@@ -200,28 +307,29 @@
   }
 }
 
-/* Minimalist glass card, used for every section below the hero (catalog,
-   pair picker, results, metrics) -- translucent rather than flat white, so
-   it still reads as "glass" against the page's own soft gradient
-   background (see index.css), with a soft shadow instead of a hard border. */
+/* Minimalist dark-glass card, used for every section below the hero
+   (catalog, pair picker, results, metrics) -- translucent white-on-black,
+   the same family as the hero's .glass-panel, so the look is continuous
+   from the top of the page to the bottom. */
 .panel {
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.66);
+  background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
-  box-shadow: 0 4px 24px rgba(30, 30, 60, 0.06);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .panel h2 {
   margin-top: 0;
   font-size: 1.05rem;
   font-weight: 600;
+  color: #fff;
 }
 
 .muted {
-  color: #666;
+  color: rgba(232, 232, 239, 0.6);
 }
 
 .small {
@@ -229,7 +337,7 @@
 }
 
 .error {
-  color: #b00020;
+  color: #ff6b6b;
 }
 
 .mono {
@@ -245,8 +353,9 @@
 }
 
 .chip {
-  border: 1px solid rgba(26, 26, 46, 0.12);
-  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e8e8ef;
   border-radius: 999px;
   padding: 0.25rem 0.75rem;
   font-size: 0.82rem;
@@ -254,49 +363,59 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
+.chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .chip-active {
-  background: #1a1a2e;
-  color: #fff;
-  border-color: #1a1a2e;
+  background: #fff;
+  color: #14141c;
+  border-color: #fff;
 }
 
 .catalog-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.85rem;
 }
 
 .catalog-table th {
   text-align: left;
-  border-bottom: 1px solid #ddd;
-  padding: 0.35rem 0.4rem;
-  color: #555;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0.5rem 0.5rem;
+  color: rgba(232, 232, 239, 0.6);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .catalog-table td {
-  padding: 0.35rem 0.4rem;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 0.5rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .catalog-table tbody tr {
   cursor: pointer;
+  transition: background 0.12s ease;
 }
 
 .catalog-table tbody tr:hover {
-  background: #f7f7fb;
+  background: rgba(140, 160, 255, 0.1);
 }
 
 .row-selected {
-  background: #eef0ff !important;
+  background: rgba(120, 140, 255, 0.18) !important;
 }
 
 .badge-yes {
-  color: #0a7d2c;
+  color: #34d399;
   font-size: 0.78rem;
 }
 
 .badge-no {
-  color: #999;
+  color: rgba(232, 232, 239, 0.45);
   font-size: 0.78rem;
 }
 
@@ -321,8 +440,8 @@
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
-  border: 1px solid rgba(26, 26, 46, 0.08);
-  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: 10px;
   padding: 0.5rem 0.6rem;
 }
@@ -336,17 +455,23 @@
 }
 
 .suggestion-row button {
-  padding: 0.35rem 0.8rem;
-  border-radius: 6px;
-  border: 1px solid #1a1a2e;
-  background: #1a1a2e;
-  color: #fff;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #fff;
+  background: #fff;
+  color: #14141c;
   cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+
+.suggestion-row button:hover:not(:disabled) {
+  opacity: 0.85;
 }
 
 .suggestion-row button:disabled {
-  background: #ccc;
-  border-color: #ccc;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(232, 232, 239, 0.4);
   cursor: not-allowed;
 }
 
@@ -356,29 +481,29 @@
   font-size: 0.8rem;
 }
 
-.status-done { color: #0a7d2c; }
-.status-failed { color: #b00020; }
-.status-running, .status-queued { color: #a06800; }
+.status-done { color: #34d399; }
+.status-failed { color: #f87171; }
+.status-running, .status-queued { color: #fbbf24; }
 
 /* Plain-language summary (ResultsView.jsx's summarizeResult) -- shown
    before the technical metrics, sized and colored to read at a glance for
    someone who doesn't know what an inlier ratio is. */
 .result-summary {
-  border-left: 4px solid #888;
-  background: #f7f7fb;
+  border-left: 4px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: 4px;
   padding: 0.75rem 1rem;
   margin: 0.75rem 0 1rem;
 }
 
 .result-summary-good {
-  border-left-color: #0a7d2c;
-  background: #eefaf0;
+  border-left-color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
 }
 
 .result-summary-bad {
-  border-left-color: #a06800;
-  background: #fdf6e8;
+  border-left-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
 }
 
 .result-summary-headline {
@@ -397,7 +522,7 @@
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #888;
+  color: rgba(232, 232, 239, 0.55);
   margin: 1rem 0 0.5rem;
 }
 
@@ -409,16 +534,55 @@
   margin: 0.5rem 0 0.75rem;
 }
 
+/* Used inside a single results-row card (see ResultsView.jsx / .result-card
+   below), which is narrower than the old full-width layout -- one column
+   reads better than an auto-fit grid awkwardly wrapping at ~340px. */
+.metrics-stacked {
+  grid-template-columns: 1fr;
+}
+
+/* Results section (ResultsView.jsx): summary / technical detail / match
+   image side by side as their own cards, rather than one long vertical
+   stack -- the row only scrolls sideways once the cards don't all fit. */
+.results-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.4rem;
+}
+
+.result-card {
+  flex: 0 0 320px;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.result-card .results-subhead {
+  margin-top: 0;
+}
+
+.result-card-image {
+  flex: 1 1 480px;
+}
+
 .metrics div {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  border-bottom: 1px dotted #eee;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.14);
   padding-bottom: 0.3rem;
 }
 
 .metrics dt {
-  color: #666;
+  color: rgba(232, 232, 239, 0.55);
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -438,15 +602,15 @@
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  border: 1px solid #ddd;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 4px;
   margin-top: 0.5rem;
-  background: #fafafa;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .overlay-img {
   display: block;
-  height: min(65vh, 640px);
+  height: min(50vh, 480px);
   width: auto;
   max-width: none;
 }
@@ -462,6 +626,11 @@
 .matrix-scroll {
   overflow-x: auto;
   margin: 0.75rem 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .matrix-table {
@@ -473,24 +642,30 @@
 
 .matrix-table th {
   text-align: left;
-  border-bottom: 1px solid #ddd;
-  padding: 0.4rem 0.6rem;
-  color: #555;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0.55rem 0.75rem;
+  color: rgba(232, 232, 239, 0.6);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   white-space: nowrap;
 }
 
 .matrix-table td {
-  border-bottom: 1px solid #f0f0f0;
-  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0.5rem 0.75rem;
   vertical-align: top;
 }
 
+/* Functional hit/miss colors kept (green = real correspondences found,
+   gray = none), just softened to translucent tints so they read as glass
+   tiles rather than flat, opaque fills. */
 .cell-hit {
-  background: #e9f9ee;
+  background: rgba(52, 211, 153, 0.15);
 }
 
 .cell-miss {
-  background: #f5f5f7;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .cell-inliers {
@@ -499,24 +674,24 @@
 }
 
 .cell-hit .cell-inliers {
-  color: #0a7d2c;
+  color: #34d399;
 }
 
 .cell-miss .cell-inliers {
-  color: #999;
+  color: rgba(232, 232, 239, 0.4);
 }
 
 .cell-detail {
   font-size: 0.75rem;
-  color: #777;
+  color: rgba(232, 232, 239, 0.5);
 }
 
 .cell-hit-weak {
-  background: #f2fbec;
+  background: rgba(163, 230, 53, 0.14);
 }
 
 .cell-hit-weak .cell-inliers {
-  color: #4c8c3a;
+  color: #a3e635;
 }
 
 .matrix-cell-btn {
@@ -524,31 +699,35 @@
   width: 100%;
   text-align: left;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   background: none;
   padding: 0.15rem 0.3rem;
   margin: -0.15rem -0.3rem;
   cursor: pointer;
   font: inherit;
   color: inherit;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .matrix-cell-btn:hover {
-  border-color: #1a1a2e;
-  background: rgba(26, 26, 46, 0.05);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .matrix-cell-btn-selected {
-  border-color: #1a1a2e;
-  background: rgba(26, 26, 46, 0.08);
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .viewer-expanded {
-  border: 1px solid #1a1a2e;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
   padding: 1rem;
   margin: 1rem 0;
-  background: #fafafe;
+  background: rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 .viewer-expanded-header {
@@ -561,15 +740,22 @@
 .viewer-expanded-header h3 {
   margin: 0;
   font-size: 0.95rem;
+  color: #fff;
 }
 
 .viewer-expanded-close {
-  border: 1px solid #ccc;
-  background: #fff;
-  border-radius: 6px;
-  padding: 0.25rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8e8ef;
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
   cursor: pointer;
   font-size: 0.85rem;
+  transition: background 0.12s ease;
+}
+
+.viewer-expanded-close:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .budget-toggle {
@@ -593,23 +779,27 @@
 }
 
 .zoom-pane {
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  /* Stays this dark, matching the page around it now -- it's a viewport
+     for real grayscale image crops either way. */
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
   overflow: hidden;
-  background: #111;
+  background: #0a0a0d;
 }
 
 .zoom-pane-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.3rem 0.5rem;
-  background: #f5f5f7;
-  border-bottom: 1px solid #ddd;
+  padding: 0.35rem 0.6rem;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .zoom-pane-toolbar .mono {
-  color: #333;
+  color: #e8e8ef;
   word-break: break-all;
 }
 
@@ -622,12 +812,18 @@
 .zoom-pane-controls button {
   width: 1.6rem;
   height: 1.6rem;
-  border: 1px solid #ccc;
-  background: #fff;
-  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8e8ef;
+  border-radius: 6px;
   cursor: pointer;
   line-height: 1;
   font-size: 0.9rem;
+  transition: background 0.12s ease;
+}
+
+.zoom-pane-controls button:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .zoom-pane-controls button[aria-label="Reset view"] {
@@ -692,7 +888,7 @@
 .hover-readout {
   margin-top: 0.5rem;
   font-weight: 600;
-  color: #1a1a2e;
+  color: #fff;
 }
 
 .moon-globe-wrap {
@@ -723,7 +919,9 @@
 .moon-globe-legend {
   position: absolute;
   left: 0.85rem;
-  bottom: 0.85rem;
+  /* Matches the toggle panel's lift on the opposite corner (see
+     .hero-3d-toggles) so both corner overlays sit at the same height. */
+  bottom: 10vh;
   background: rgba(5, 5, 7, 0.72);
   border-radius: 6px;
   padding: 0.5rem 0.7rem;
@@ -758,11 +956,14 @@
 .moon-globe-tooltip {
   position: fixed;
   z-index: 20;
-  background: #fff;
-  border: 1px solid #ccc;
+  background: rgba(18, 18, 24, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
   padding: 0.4rem 0.6rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  color: #e8e8ef;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   pointer-events: none;
   max-width: 260px;
 }

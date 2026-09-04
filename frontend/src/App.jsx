@@ -133,6 +133,9 @@ export default function App() {
           />
         </div>
 
+        {/* Anchored to the top rather than centered on the globe -- judges
+            need an unobstructed view of the Moon itself, the title is just
+            a banner above it. */}
         <div className="hero-3d-overlay">
           <h1 className="hero-3d-title">
             BADR <span className="hero-3d-title-sep">&mdash;</span> SIH26166
@@ -142,6 +145,21 @@ export default function App() {
             optical images (OHRC, TMC-2, and IIRS)
           </p>
         </div>
+
+        {/* The globe's OrbitControls captures the scroll wheel to zoom, so a
+            mouse wheel over this full-viewport hero can't scroll the page --
+            this button is the escape hatch: an obvious, always-available way
+            to move past the hero without fighting the 3D view. */}
+        <button
+          type="button"
+          className="hero-3d-scrollcue"
+          onClick={() => window.scrollBy({ top: window.innerHeight * 0.92, behavior: "smooth" })}
+        >
+          <span className="hero-3d-scrollcue-label">Scroll</span>
+          <span className="hero-3d-scrollcue-track">
+            <span className="hero-3d-scrollcue-thumb" />
+          </span>
+        </button>
 
         <div className="hero-3d-toggles glass-panel">
           <span className="hero-3d-toggles-label">Overlay</span>
@@ -174,10 +192,6 @@ export default function App() {
           </div>
         </div>
       </section>
-
-      {/* Short black-to-white fade so scrolling out of the hero isn't an
-          abrupt cut -- purely decorative, no content. */}
-      <div className="hero-3d-fade" aria-hidden="true" />
 
       <div className="app">
         <p className="app-intro muted small">
