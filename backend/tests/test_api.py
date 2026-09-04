@@ -16,9 +16,11 @@ during this build:
 
 from __future__ import annotations
 
+import io
 import time
 
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.main import app
 
@@ -194,4 +196,46 @@ def test_metrics_matrix_crop_rejects_path_traversal():
     doesn't match build_matrix.py's own naming convention -- confirm a
     traversal attempt 404s rather than escaping CELL_IMAGE_DIR."""
     resp = client.get("/metrics/matrix/crop/..%2F..%2F..%2Fetc%2Fpasswd")
+    assert resp.status_code == 404
+
+
+def test_product_browse_serves_a_real_image_for_a_has_raster_product():
+    """The 3D Moon drapes a product's own real image onto its footprint
+    patch (GET /products/{id}/browse) rather than a flat color fill --
+    exercised here against OHRC_2021's actual browse PNG on disk, not a
+    mocked file."""
+    resp = client.get(f"/products/{OHRC_2021}/browse")
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "image/jpeg"
+    assert len(resp.content) > 0
+
+
+def test_product_browse_caps_the_long_side_at_4096_for_a_larger_source_image():
+    """OHRC_2021's real browse PNG is ~1200x9369 -- long past the resize
+    cap. The 3D Moon lets a user zoom in close enough to fill the screen
+    with one patch (MoonGlobe.jsx's MIN_CAMERA_DISTANCE), so this cap is a
+    GPU-texture-size safety limit, not a "small enough" one -- confirm it's
+    actually applied rather than silently serving the multi-thousand-pixel
+    original."""
+    resp = client.get(f"/products/{OHRC_2021}/browse")
+    image = Image.open(io.BytesIO(resp.content))
+    assert max(image.size) <= 4096
+
+
+def test_product_browse_serves_an_already_small_image_at_full_resolution():
+    """IIRS_2021's real browse PNG (175x3902) is already under the resize
+    cap -- it should come back untouched, not needlessly downsampled."""
+    resp = client.get(f"/products/{IIRS_2021}/browse")
+    image = Image.open(io.BytesIO(resp.content))
+    assert image.size == (175, 3902)
+
+
+def test_product_browse_404s_for_a_product_with_no_raster_staged():
+    resp = client.get(f"/products/{OHRC_2021_NO_RASTER}/browse")
+    assert resp.status_code == 404
+
+
+def test_product_browse_404s_for_an_unknown_product_id():
+    resp = client.get("/products/not_a_real_product/browse")
     assert resp.status_code == 404

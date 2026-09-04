@@ -49,3 +49,7 @@ export function getMetricsMatrix() {
 export function matrixCropUrl(filename) {
   return `${API_BASE}/metrics/matrix/crop/${filename}`;
 }
+
+export function productBrowseUrl(productId) {
+  return `${API_BASE}/products/${encodeURIComponent(productId)}/browse`;
+}

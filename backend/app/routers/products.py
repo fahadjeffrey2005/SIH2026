@@ -1,14 +1,63 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from pathlib import Path
+
+import cv2
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from match.classical.demo import BROWSE_PRODUCTS, IIRS_PRODUCTS
 
+from ..config import DATA_ROOT
 from ..db import catalog_conn, row_corners
 from ..schemas import ProductOut
 
 router = APIRouter(tags=["products"])
 
 _HAS_RASTER = set(BROWSE_PRODUCTS) | set(IIRS_PRODUCTS)
+
+# product_id -> its real browse-resolution PNG, relative to DATA_ROOT. Reuses
+# the exact same source images match/classical/demo.py already loads for
+# matching (BROWSE_PRODUCTS) plus the one IIRS product's own browse PNG from
+# ingest -- IIRS_PRODUCTS points at the native cube (for matching), not this
+# PNG, since matching uses a real spectral band rather than a browse render.
+_BROWSE_IMAGE = {pid: png_rel for pid, (_xml_rel, png_rel) in BROWSE_PRODUCTS.items()}
+_BROWSE_IMAGE["ch2_iir_nri_20211221t0324126144_d_img_hw1"] = (
+    "raw/iirs/ch2_iir_nri_20211221/browse/raw/20211221/ch2_iir_nri_20211221T0324126144_b_brw_hw1.png"
+)
+
+_GLOBE_TEXTURE_DIR = DATA_ROOT / "processed" / "moon_globe_textures"
+_GLOBE_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
+# The 3D Moon now lets the camera zoom in close enough to fill the screen
+# with a single patch (see MoonGlobe.jsx's MIN_CAMERA_DISTANCE/FOCUS_DISTANCE),
+# so the old 1024px cap was leaving real detail on the table -- these source
+# PNGs run up to ~7MB / 9000-29000px on the long side (IIRS's is already
+# under this cap and gets served at its full original resolution, untouched).
+# 4096 is a conservative ceiling for GPU texture-size support (WebGL2
+# requires >=2048; effectively every real device from the last decade
+# supports at least 4096) while still being a ~4x jump in delivered detail
+# over the old cap for the products that do need downsampling.
+_GLOBE_TEXTURE_MAX_SIDE = 4096
+
+
+def _globe_texture_path(product_id: str) -> Path:
+    """Resizes+re-encodes a product's real browse image the first time it's
+    requested (a one-time cost, not paid on every request) and caches the
+    result on disk; later requests just serve the cached JPEG. Long, thin
+    strips (some over 20x taller than wide) are capped on their LONG side so
+    the short side doesn't get downsampled to nothing."""
+    cached = _GLOBE_TEXTURE_DIR / f"{product_id}.jpg"
+    if cached.exists():
+        return cached
+    src = DATA_ROOT / _BROWSE_IMAGE[product_id]
+    image = cv2.imread(str(src), cv2.IMREAD_UNCHANGED)
+    if image is None:
+        raise HTTPException(404, f"browse image missing on disk for {product_id!r} (expected {src})")
+    h, w = image.shape[:2]
+    scale = _GLOBE_TEXTURE_MAX_SIDE / max(h, w)
+    if scale < 1:
+        image = cv2.resize(image, (max(1, round(w * scale)), max(1, round(h * scale))), interpolation=cv2.INTER_AREA)
+    cv2.imwrite(str(cached), image, [cv2.IMWRITE_JPEG_QUALITY, 92])
+    return cached
 
 
 @router.get("/products", response_model=list[ProductOut])
@@ -38,3 +87,21 @@ def list_products():
         )
         for r in rows
     ]
+
+
+@router.get("/products/{product_id}/browse")
+def get_product_browse(product_id: str):
+    """A real, actual-pixel-data preview image of this product -- used by
+    the 3D Moon (frontend/src/components/MoonGlobe.jsx) to drape the real
+    Chandrayaan-2 image onto its footprint patch on the globe, instead of a
+    flat color fill. `product_id` is only ever looked up in `_BROWSE_IMAGE`
+    (never used to build a filesystem path directly), so there's no path-
+    traversal surface here.
+
+    Only available for the same products `has_raster` is true for (GET
+    /products) -- the other 4 have real metadata/corners but their raw zips
+    aren't unpacked past their PDS4 labels yet, so there's no pixel data to
+    show; the frontend falls back to a flat color patch for those."""
+    if product_id not in _BROWSE_IMAGE:
+        raise HTTPException(404, f"no browse image available for {product_id!r}")
+    return FileResponse(_globe_texture_path(product_id), media_type="image/jpeg")

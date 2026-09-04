@@ -9,6 +9,7 @@ import {
   getMetricsMatrix,
   listProducts,
   overlayUrl,
+  productBrowseUrl,
   submitMatch,
   suggestPairs,
 } from "./api";
@@ -61,6 +62,12 @@ describe("api.js", () => {
 
   it("overlayUrl builds a plain URL without fetching", () => {
     expect(overlayUrl("j1")).toBe("http://localhost:8000/match/j1/overlay");
+  });
+
+  it("productBrowseUrl builds a plain, URL-encoded URL without fetching", () => {
+    expect(productBrowseUrl("ch2_ohr_ncp_20210405t1606536730_d_img_d18")).toBe(
+      "http://localhost:8000/products/ch2_ohr_ncp_20210405t1606536730_d_img_d18/browse"
+    );
   });
 
   it("surfaces the backend's JSON `detail` field as the error message", async () => {

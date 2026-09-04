@@ -299,6 +299,90 @@ through the same code path (`pipeline/match/build_matrix.py`'s
 illustration, so a judge can toggle 2048 -> 4096 and watch the same pair go
 from 0 inliers to 4 on the actual matched points.
 
+## 3D Moon
+
+`frontend/src/components/MoonGlobe.jsx` plots every product's real footprint
+at its true lat/lon (the same PDS4-derived corners `GET /products` already
+serves) on a rotating three.js globe, colored by that product's own real
+`solar_incidence_deg` on the same sequential-blue scale used elsewhere in
+the app. It's not decoration on top of the matching demo -- it's the same
+"incidence gap" story the metrics dashboard tells, shown as *where on the
+Moon* and *how differently lit* two overlapping footprints actually were.
+Hovering a patch shows its product ID, instrument, and incidence angle;
+clicking one selects that product in the catalog browser above (and vice
+versa via `selectedId`), and the two products in an active/finished match
+job are outlined in orange via `pairIds`.
+
+Real footprints are tiny next to the whole Moon -- some OHRC captures are
+under a degree across, and a full TMC-2 swath can be 35-48 degrees long but
+only ~0.6-1 degree wide -- so at true angular scale almost every patch would
+be sub-pixel. `moonGlobeMath.js`'s `exaggerateCorners` stretches each
+footprint's two sides independently up to a visibility floor (6°, capped at
+a 35x multiplier for near-zero-width sides): true position and orientation
+are preserved, but a very narrow swath ends up visually wider relative to
+its length than the real footprint -- an orrery-style exaggeration, not a
+claim about true size or aspect ratio, and the in-app caption says so.
+
+A second, easy-to-miss failure mode during development: a flat two-triangle
+quad doesn't follow the sphere's curvature over a 35-48° span, so most of an
+exaggerated long swath's flat quad sat inside or floating outside the true
+curved Moon mesh, and only the bits landing almost exactly on the surface
+(near its corners) survived the depth test -- rendering as a dashed line of
+disconnected slivers instead of one solid ribbon. `footprintPatchVertices`
+fixes this by subdividing a footprint into an NxM grid (bilinear
+interpolation of the four corners, each grid point independently projected
+onto the sphere) before triangulating, so long swaths hug the curve as one
+continuous strip; small footprints still resolve to a single quad (two
+triangles), so this costs nothing for the common case.
+
+WebGL isn't universal (older browsers, locked-down machines, and the jsdom
+environment the frontend test suite runs in), so the component degrades to
+a plain-text notice rather than crashing the page when
+`new THREE.WebGLRenderer()` throws -- the rest of the app works normally
+either way. The globe's own surface (`frontend/src/assets/moon_diffuse.jpg`)
+is real too -- NASA's own LROC (Lunar Reconnaissance Orbiter Camera) global
+color mosaic, `lroc_color_2k.jpg` (2048x1024) from NASA's Scientific
+Visualization Studio CGI Moon Kit (svs.gsfc.nasa.gov/4720), a US government
+work and public domain; credit NASA's Scientific Visualization Studio. It
+replaced an earlier procedurally-generated placeholder
+(`scripts/gen_moon_texture.py`, numpy+PIL, kept in the repo as a
+network-free fallback/regeneration path, not used by default anymore).
+Swapping in a higher-resolution version from the same kit (4k/8k/16k TIFFs
+are available there) is a one-file replace -- `moonGlobeMath.js`'s
+`latLonToVector3` already matches three.js's default `SphereGeometry` UV
+convention (see that function's docstring), so no code change is needed,
+just the asset. The globe's lighting is still one fixed decorative light,
+not each product's true sun-elevation/azimuth -- reconstructing true
+per-product illumination on the globe itself was scoped out; only the
+surface map itself is real, not the shading on it.
+
+### Real per-product imagery on the patches
+
+The colored patches weren't just data-driven, they were flat color -- no
+actual pixels. `GET /products/{id}/browse` (`backend/app/routers/products.py`)
+now serves each `has_raster` product's own real browse-resolution image
+(the exact same source PNGs `match/classical/demo.py` already loads for
+matching, resized to a 1024px-long-side JPEG and cached on first request --
+these source PNGs run up to ~7MB / 9000+ px on the long side, not something
+to re-encode on every request or ship to a browser tab uncompressed), and
+`MoonGlobe.jsx` drapes it onto that product's patch via a UV-mapped
+`footprintPatchGeometry` (the same curved NxM grid as `footprintPatchVertices`
+above, plus a matching UV per vertex) instead of the plain-position variant.
+The incidence-angle color still comes through as a multiply tint on top of
+the real image (`MeshBasicMaterial`'s `map` x `color`), so both signals
+survive at once. The remaining 4 products (raw zips not unpacked past their
+labels) still show a flat color fill -- there's no real pixel data for them
+yet, and the in-app caption says so rather than implying otherwise.
+
+One cosmetic side effect of the curvature-subdivision fix above surfaced
+here and got fixed too: `EdgesGeometry`'s default 1-degree threshold was
+treating the subdivided grid's internal (non-coplanar, because the surface
+curves) cell edges as "creases," drawing the whole internal grid as the
+selection outline instead of just the patch's true boundary -- distracting
+on a flat color fill, actively messy on top of a real photo. Raising the
+threshold to 89 degrees keeps genuine boundary edges (always included
+regardless of angle) while dropping the false internal ones.
+
 ## Known caveats in this matrix
 
 - The main matrix's OHRC/TMC-2 imagery is still the 1/10-downsampled browse
