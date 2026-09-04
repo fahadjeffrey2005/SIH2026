@@ -113,111 +113,120 @@ export default function App() {
   const anchorProduct = products.find((p) => p.product_id === selectedId);
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>SIH26166 — Lunar Image Correspondence</h1>
-        <p className="muted">Chandrayaan-2 OHRC / TMC-2 / IIRS, sun-angle &amp; scale-invariant matching demo</p>
-      </header>
+    <>
+      {/* Landing: the 3D Moon fills the entire first viewport (own black
+          background, edge to edge -- not squeezed into a bordered card like
+          the sections below), with just the team name + one-line project
+          description overlaid on top of it and the overlay toggles as a
+          floating glass control in the bottom-right corner. Rendered as a
+          sibling of `.app` (not inside it) so it isn't constrained by that
+          container's max-width/padding. */}
+      <section className="hero-3d">
+        <div className="hero-3d-globe">
+          <MoonGlobe
+            products={products}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            pairIds={job ? [job.product_a, job.product_b] : undefined}
+            showOverlay={showOverlay}
+            visibleInstruments={visibleInstruments}
+          />
+        </div>
 
-      <main className="app-grid">
-        <CatalogBrowser
-          products={products}
-          loading={productsLoading}
-          error={productsError}
-          instrumentFilter={instrumentFilter}
-          onFilterChange={setInstrumentFilter}
-          onSelect={setSelectedId}
-          selectedId={selectedId}
-        />
-        <PairPicker
-          selectedId={selectedId}
-          anchorHasRaster={anchorProduct ? anchorProduct.has_raster : false}
-          suggestions={suggestions}
-          loading={suggestionsLoading}
-          error={suggestionsError}
-          method={method}
-          onMethodChange={setMethod}
-          onRunMatch={handleRunMatch}
-          running={running}
-        />
-      </main>
-
-      {/* Full width rather than squeezed into the 3-up grid above: the
-          overlay image and the metrics were unreadably small crammed into a
-          ~1/3-width column, and there was nowhere to put a plain-language
-          summary that wasn't even tighter. Matches the same full-width
-          treatment already used for the metrics dashboard and 3D Moon below. */}
-      <div className="app-grid-wide">
-        <ResultsView job={job} error={jobError} />
-      </div>
-
-      <div className="app-grid-wide">
-        <MetricsDashboard matrix={matrix} loading={matrixLoading} error={matrixError} />
-      </div>
-
-      <div className="app-grid-wide">
-        <section className="panel panel-wide">
-          <h2>3D Moon</h2>
-          <p className="muted small">
-            Every product's real footprint, plotted at its actual lat/lon on a rotating globe.
-            Wherever the actual Chandrayaan-2 image is available (OHRC/TMC-2/IIRS raster staged --
-            "Raster: available" in the catalog above), that real photo is draped onto the patch,
-            tinted by its own real solar-incidence angle (lighter = sun closer to overhead, darker =
-            grazing light) -- the same number behind the metrics dashboard's "incidence gap" column;
-            the remaining products (raster not staged) show that same color as a flat fill instead.
-            Drag to rotate, scroll to zoom, click a patch to select that product above. Footprint
-            sizes are exaggerated for visibility (a real one can be under a degree wide, and some are
-            long, thin swaths only a fraction of a degree across) -- true positions and orientation
-            are real, but each side is independently stretched up to a visible minimum, so a very
-            narrow swath reads wider relative to its length than the true footprint. The globe's own
-            base surface is also real -- NASA's public-domain LROC global color mosaic -- though its
-            shading is decorative lighting, not each product's true illumination direction. Click a
-            patch to fly the camera in on it; scroll to zoom all the way in on the real pixels. Use
-            the toggles alongside the globe to hide the footprint overlay entirely, or instrument by
-            instrument, to see the bare base map underneath.
+        <div className="hero-3d-overlay">
+          <h1 className="hero-3d-title">
+            BADR <span className="hero-3d-title-sep">&mdash;</span> SIH26166
+          </h1>
+          <p className="hero-3d-subtitle">
+            Multi-modal, sun-angle- and scale-invariant image correspondence using Chandrayaan-2
+            optical images (OHRC, TMC-2, and IIRS)
           </p>
-          <div className="moon-globe-layout">
-            <MoonGlobe
-              products={products}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              pairIds={job ? [job.product_a, job.product_b] : undefined}
-              showOverlay={showOverlay}
-              visibleInstruments={visibleInstruments}
-            />
-            <div className="moon-globe-sidebar">
-              <span className="moon-globe-sidebar-label">Overlay</span>
+        </div>
+
+        <div className="hero-3d-toggles glass-panel">
+          <span className="hero-3d-toggles-label">Overlay</span>
+          <button
+            type="button"
+            className={showOverlay ? "glass-toggle glass-toggle-active" : "glass-toggle"}
+            aria-pressed={showOverlay}
+            onClick={() => setShowOverlay((v) => !v)}
+          >
+            <span>Footprints</span>
+            <span className="glass-toggle-dot" />
+          </button>
+          <span className="hero-3d-toggles-label">Instruments</span>
+          <div className="hero-3d-toggles-row">
+            {["OHRC", "TMC-2", "IIRS"].map((instrument) => (
               <button
+                key={instrument}
                 type="button"
-                className={showOverlay ? "moon-globe-sidebar-toggle moon-globe-sidebar-toggle-active" : "moon-globe-sidebar-toggle"}
-                aria-pressed={showOverlay}
-                onClick={() => setShowOverlay((v) => !v)}
+                disabled={!showOverlay}
+                className={
+                  visibleInstruments.has(instrument) ? "glass-toggle glass-toggle-active" : "glass-toggle"
+                }
+                aria-pressed={visibleInstruments.has(instrument)}
+                onClick={() => toggleInstrument(instrument)}
               >
-                <span>Footprints</span>
-                <span className="moon-globe-sidebar-dot" />
+                <span>{instrument}</span>
+                <span className="glass-toggle-dot" />
               </button>
-              <span className="moon-globe-sidebar-label">Instruments</span>
-              {["OHRC", "TMC-2", "IIRS"].map((instrument) => (
-                <button
-                  key={instrument}
-                  type="button"
-                  disabled={!showOverlay}
-                  className={
-                    visibleInstruments.has(instrument)
-                      ? "moon-globe-sidebar-toggle moon-globe-sidebar-toggle-active"
-                      : "moon-globe-sidebar-toggle"
-                  }
-                  aria-pressed={visibleInstruments.has(instrument)}
-                  onClick={() => toggleInstrument(instrument)}
-                >
-                  <span>{instrument}</span>
-                  <span className="moon-globe-sidebar-dot" />
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
-        </section>
+        </div>
+      </section>
+
+      {/* Short black-to-white fade so scrolling out of the hero isn't an
+          abrupt cut -- purely decorative, no content. */}
+      <div className="hero-3d-fade" aria-hidden="true" />
+
+      <div className="app">
+        <p className="app-intro muted small">
+          Every product's real footprint is plotted at its actual lat/lon on the globe above.
+          Wherever the actual Chandrayaan-2 image is available (OHRC/TMC-2/IIRS raster staged --
+          "Raster: available" in the catalog below), that real photo is draped onto the patch,
+          tinted by its own real solar-incidence angle (lighter = sun closer to overhead, darker =
+          grazing light) -- the same number behind the metrics dashboard's "incidence gap" column.
+          Drag to rotate, scroll to zoom, click a patch to select that product below; use the
+          toggles in the globe's corner to hide the footprint overlay entirely, or instrument by
+          instrument.
+        </p>
+
+        <main className="app-grid">
+          <CatalogBrowser
+            products={products}
+            loading={productsLoading}
+            error={productsError}
+            instrumentFilter={instrumentFilter}
+            onFilterChange={setInstrumentFilter}
+            onSelect={setSelectedId}
+            selectedId={selectedId}
+          />
+          <PairPicker
+            selectedId={selectedId}
+            anchorHasRaster={anchorProduct ? anchorProduct.has_raster : false}
+            suggestions={suggestions}
+            loading={suggestionsLoading}
+            error={suggestionsError}
+            method={method}
+            onMethodChange={setMethod}
+            onRunMatch={handleRunMatch}
+            running={running}
+          />
+        </main>
+
+        {/* Full width rather than squeezed into the 2-up grid above: the
+            overlay image and the metrics were unreadably small crammed into
+            a narrow column, and there was nowhere to put a plain-language
+            summary that wasn't even tighter. Matches the same full-width
+            treatment used for the metrics dashboard below. */}
+        <div className="app-grid-wide">
+          <ResultsView job={job} error={jobError} />
+        </div>
+
+        <div className="app-grid-wide">
+          <MetricsDashboard matrix={matrix} loading={matrixLoading} error={matrixError} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
