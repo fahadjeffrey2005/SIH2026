@@ -26,7 +26,7 @@ import cv2
 
 from geo import Footprint, quads_overlap
 
-from .classical.demo import BROWSE_PRODUCTS, DATA_ROOT, IIRS_PRODUCTS
+from .classical.demo import BROWSE_PRODUCTS, DATA_ROOT
 from .compare import run_pair
 from .evaluate import geolocation_errors_m, summarize_errors
 from .learned import matcher as learned_matcher
@@ -58,7 +58,7 @@ def _row_corners(row: sqlite3.Row) -> dict:
 
 
 def matchable_pairs() -> list[dict]:
-    has_raster = sorted(set(BROWSE_PRODUCTS) | set(IIRS_PRODUCTS))
+    has_raster = sorted(BROWSE_PRODUCTS)
     conn = sqlite3.connect(CATALOG_DB)
     conn.row_factory = sqlite3.Row
     rows = {r["product_id"]: r for r in conn.execute("SELECT * FROM products").fetchall()}

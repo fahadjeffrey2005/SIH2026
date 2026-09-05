@@ -1,0 +1,17 @@
+# Root-level requirements.txt exists ONLY so Railway's Nixpacks build
+# detects this as a Python app (it looks for a requirements.txt at the
+# repo root) and installs everything the backend needs in one pass --
+# backend/requirements.txt and pipeline/requirements.txt are the real,
+# maintained dependency lists (see each one's own comments); this file is
+# a thin combiner, not a third copy to keep in sync by hand.
+#
+# CPU-only PyTorch: the default `torch` wheel from PyPI bundles CUDA
+# libraries meant for a GPU host, which is both unnecessary (this pipeline
+# runs DISK+LightGlue on CPU everywhere, including here) and a multi-GB
+# download that risks blowing Railway's build time/image size limits. This
+# index is tried first for `torch`/`kornia`'s own torch dependency; pip
+# falls back to PyPI for every other package.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+-r backend/requirements.txt
+-r pipeline/requirements.txt

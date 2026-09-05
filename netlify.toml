@@ -1,0 +1,24 @@
+# Netlify build config for the frontend half of this monorepo.
+#
+# This repo has backend/, pipeline/, and data/ as siblings of frontend/ --
+# none of that is relevant to Netlify, which only ever serves the static
+# React build. `base` tells Netlify which subdirectory is the actual site
+# source (so it looks for frontend/package.json, not one at repo root,
+# which doesn't exist); `publish` is then relative to that base dir.
+#
+# VITE_API_BASE (the URL of the Railway-hosted backend, e.g.
+# https://sih26166-backend.up.railway.app) must be set as a Netlify site
+# environment variable (Site configuration -> Environment variables) --
+# it's read at BUILD time by frontend/src/api.js, baked into the static
+# bundle, so it has to be set before the first deploy and re-deployed
+# after any change to it. Without it, the deployed frontend falls back to
+# http://localhost:8000 and every API call will fail from a browser that
+# isn't on the same machine as the backend.
+
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"

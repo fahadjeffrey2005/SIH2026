@@ -11,14 +11,18 @@ overlapping in docs/architecture.md / README.md):
         ch2_ohr_ncp_20210405t1606536730_d_img_d18 \\
         ch2_tmc_ncf_20250807t1904346039_d_img_d18 --out /tmp/match.png
 
-Currently wired to the 3 browse-preview PNGs pulled straight out of the
-product zips during data acquisition (data/browse/, README.md's data table)
-rather than the native full-resolution rasters, which haven't been staged
-into this environment yet (they're 300-800MB each). Each browse PNG is a
-verified-exact 1/10 downsample of its native raster (checked against the
-label's own Axis_Array line/sample counts), so a BilinearGeoTransform built
-with n_lines/n_samples = the browse image's own shape maps its pixel
-coordinates correctly. Swap BROWSE_PRODUCTS for native-raster paths (via
+Currently wired to browse-resolution PNGs (data/browse/, README.md's data
+table) rather than the native full-resolution OHRC/TMC-2 rasters, which
+haven't been staged into this environment (they're 300-800MB zips). Each
+OHRC/TMC-2 browse PNG is a verified-exact 1/10 downsample of its native
+raster (checked against the label's own Axis_Array line/sample counts), so
+a BilinearGeoTransform built with n_lines/n_samples = the browse image's
+own shape maps its pixel coordinates correctly. IIRS's entry is different
+in kind, not just source: it's the exact native-resolution band-40 array
+(no downsampling at all), just persisted as a small PNG instead of being
+re-read from its 681MB native cube on every load -- see the comment above
+IIRS's entry below for how it was produced and how to regenerate it.
+Swap BROWSE_PRODUCTS's OHRC/TMC-2 entries for native-raster paths (via
 ingest.reader.load_product) once those are staged -- nothing else here
 needs to change.
 """
@@ -34,8 +38,7 @@ import numpy as np
 
 from geo import BilinearGeoTransform, Footprint, overlap_crop
 from ingest.pds4_label import parse_label
-from ingest.reader import load_product
-from preprocess import clahe_normalize, to_uint8
+from preprocess import clahe_normalize
 
 from .matcher import match
 
@@ -47,11 +50,27 @@ NOMINAL_GSD_M = {"OHRC": 0.25, "TMC-2": 5.0, "IIRS": 80.0}
 
 # Verified against each label's Axis_Array line/sample counts vs. the browse
 # PNG's actual shape (see conversation notes / build log): exactly 10x for
-# all 3 registered browse-PNG products. IIRS below is loaded from its native
-# cube instead (no browse downsample involved), factor is unused for it.
+# OHRC/TMC-2's registered browse-PNG products. IIRS's factor is unused --
+# see browse_gsd_m below, it's keyed off instrument, not off which dict a
+# product came from.
 BROWSE_DOWNSAMPLE = 10
 
-# instrument -> browse PNG products: (xml relative path, png relative path)
+# instrument -> source products: (xml relative path, png relative path).
+# OHRC/TMC-2 entries are the browse-preview PNGs pulled straight out of the
+# product zips during data acquisition (1/10 native resolution, see the
+# module docstring). IIRS's entry is a full-native-resolution derivative,
+# not a downsample: generated once from the real 681MB PDS4 cube via
+#     from ingest.reader import load_product
+#     from preprocess import to_uint8
+#     band = to_uint8(load_product(<iirs xml path>).band(40))
+#     cv2.imwrite("data/browse/ch2_iir_nri_20211221T0324126144_d_img_hw1_band40.png", band)
+# -- the exact same band-40-via-to_uint8 array every documented IIRS result
+# in docs/baseline_results.md was already computed from; reading it back
+# with cv2.imread(..., cv2.IMREAD_UNCHANGED) was verified byte-identical to
+# that in-memory array before this file started using it, so folding IIRS
+# into this dict changes nothing about any existing result -- it only
+# avoids needing the 681MB cube (which isn't committed to git) at load
+# time. Regenerate this PNG with the 4 lines above if IIRS data changes.
 BROWSE_PRODUCTS = {
     "ch2_ohr_ncp_20210405t1606536730_d_img_d18": (
         "raw/ohrc/ch2_ohr_ncp_20210405T1606536730_d_img_d18.xml",
@@ -65,17 +84,9 @@ BROWSE_PRODUCTS = {
         "raw/tmc2/ch2_tmc_ncf_20250807T1904346039_d_img_d18.xml",
         "browse/ch2_tmc_ncf_20250807T1904346039_d_img_d18.png",
     ),
-}
-
-# IIRS is registered separately: its full native cube (256 bands x 5574
-# lines x 250 samples) is already staged locally (no size problem like
-# OHRC/TMC-2's 300-800MB zips), so we load it via ingest.reader + pdr and
-# pick one VNIR band as a panchromatic-like proxy, rather than needing a
-# browse PNG at all.
-IIRS_PRODUCTS = {
     "ch2_iir_nri_20211221t0324126144_d_img_hw1": (
         "raw/iirs/ch2_iir_nri_20211221/data/raw/20211221/ch2_iir_nri_20211221T0324126144_d_img_hw1.xml",
-        40,  # band index: mid-VNIR, decent SNR, roughly panchromatic-like
+        "browse/ch2_iir_nri_20211221T0324126144_d_img_hw1_band40.png",
     ),
 }
 
@@ -102,15 +113,9 @@ def load(product_id: str) -> Loaded:
         image = cv2.imread(str(DATA_ROOT / png_rel), cv2.IMREAD_UNCHANGED)
         if image is None:
             raise ValueError(f"failed to read {DATA_ROOT / png_rel}")
-    elif product_id in IIRS_PRODUCTS:
-        xml_rel, band = IIRS_PRODUCTS[product_id]
-        product = load_product(DATA_ROOT / xml_rel)
-        label = product.label
-        image = to_uint8(product.band(band))
     else:
         raise ValueError(
-            f"no data registered for {product_id!r}. "
-            f"Available: {sorted(set(BROWSE_PRODUCTS) | set(IIRS_PRODUCTS))}"
+            f"no data registered for {product_id!r}. Available: {sorted(BROWSE_PRODUCTS)}"
         )
 
     footprint = Footprint(product_id, label.corners)
