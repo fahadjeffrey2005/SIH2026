@@ -5,7 +5,7 @@ from pathlib import Path
 import cv2
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from match.classical.demo import BROWSE_PRODUCTS, IIRS_PRODUCTS
+from match.classical.demo import BROWSE_PRODUCTS
 
 from ..config import DATA_ROOT
 from ..db import catalog_conn, row_corners
@@ -13,13 +13,15 @@ from ..schemas import ProductOut
 
 router = APIRouter(tags=["products"])
 
-_HAS_RASTER = set(BROWSE_PRODUCTS) | set(IIRS_PRODUCTS)
+_HAS_RASTER = set(BROWSE_PRODUCTS)
 
 # product_id -> its real browse-resolution PNG, relative to DATA_ROOT. Reuses
 # the exact same source images match/classical/demo.py already loads for
-# matching (BROWSE_PRODUCTS) plus the one IIRS product's own browse PNG from
-# ingest -- IIRS_PRODUCTS points at the native cube (for matching), not this
-# PNG, since matching uses a real spectral band rather than a browse render.
+# matching (BROWSE_PRODUCTS's band-40-derived PNG for IIRS included) except
+# for IIRS specifically, which gets its own separate ISRO-provided browse
+# thumbnail here instead -- a nicer-looking real preview for the 3D Moon
+# than the single spectral band used for matching, even though both are
+# real imagery of the same product.
 _BROWSE_IMAGE = {pid: png_rel for pid, (_xml_rel, png_rel) in BROWSE_PRODUCTS.items()}
 _BROWSE_IMAGE["ch2_iir_nri_20211221t0324126144_d_img_hw1"] = (
     "raw/iirs/ch2_iir_nri_20211221/browse/raw/20211221/ch2_iir_nri_20211221T0324126144_b_brw_hw1.png"

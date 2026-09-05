@@ -16,6 +16,12 @@ data/processed/**
 !data/raw/**/*.xml
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+# One extra, deliberate exception: IIRS's own real ISRO-provided browse
+# thumbnail (~420KB, not the multi-hundred-MB native cube) -- backend/app/
+# routers/products.py's /products/{id}/browse serves this to the 3D Moon
+# for a nicer real preview than the single matching band, and needs it
+# present on a fresh clone (Render/Railway/etc.), not just this dev box.
+!data/raw/iirs/ch2_iir_nri_20211221/browse/raw/20211221/ch2_iir_nri_20211221T0324126144_b_brw_hw1.png
 *.zip
 *.img
 *.qub

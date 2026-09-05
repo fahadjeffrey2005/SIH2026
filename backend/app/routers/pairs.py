@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 from geo import Footprint, quads_overlap
-from match.classical.demo import BROWSE_PRODUCTS, IIRS_PRODUCTS
+from match.classical.demo import BROWSE_PRODUCTS
 
 from ..db import catalog_conn, row_corners
 from ..schemas import PairSuggestion
 
 router = APIRouter(tags=["pairs"])
 
-_HAS_RASTER = set(BROWSE_PRODUCTS) | set(IIRS_PRODUCTS)
+_HAS_RASTER = set(BROWSE_PRODUCTS)
 
 
 @router.get("/pairs/suggest", response_model=list[PairSuggestion])
